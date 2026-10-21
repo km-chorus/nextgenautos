@@ -1,0 +1,74 @@
+/* Latest Parts & Accessories (spec 16 phase 1): same bordered cards and section rhythm as Latest Vehicles.
+   "Browse by type" / "Browse by brand": tabs with JavaScript (parts.js), two plain link lists without it. */
+
+.parts-latest { padding-block: var(--s7); border-bottom: 1px solid var(--line); background: var(--tint); }
+.parts-latest .latest__empty { background: var(--surface); }
+
+/* Tabs and filter chips */
+.parts-browse { margin: 0 0 var(--s5); }
+.parts-tabs { display: flex; justify-content: center; gap: 0; margin: 0 auto var(--s4); width: max-content; max-width: 100%; border-bottom: 1px solid var(--line-strong); }
+.parts-tabs[hidden] { display: none; }
+.parts-tabs__tab {
+    min-height: 44px; padding: 0 var(--s4); margin-bottom: -1px; background: transparent; color: var(--muted); font: inherit; font-weight: 600;
+    border: 0; border-bottom: 3px solid transparent; cursor: pointer;
+}
+.parts-tabs__tab:hover { color: var(--ink); }
+.parts-tabs__tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+.parts-panel + .parts-panel { margin-top: var(--s4); }
+.parts-panel[hidden] { display: none; }
+.parts-panel__title { margin: 0 0 var(--s2); font-size: 0.875rem; font-weight: 600; text-align: center; }
+/* Phones: one scrollable row of chips (no wrapping wall of buttons); wider screens: centred and wrapping. */
+.parts-chips { display: flex; gap: var(--s2); overflow-x: auto; padding: 2px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.parts-chips::-webkit-scrollbar { display: none; }   /* the cut-off last chip shows there is more to swipe */
+.parts-chips li { flex: none; }
+.parts-chip {
+    display: inline-flex; align-items: center; min-height: 40px; padding: 0 var(--s4); white-space: nowrap;
+    color: var(--ink); font-size: 0.875rem; font-weight: 500; text-decoration: none;
+    background: var(--surface); border: 1px solid var(--line-strong); border-radius: 999px;
+}
+.parts-chip:hover { border-color: var(--ink); color: var(--ink); }
+.parts-chip[aria-current] { background: var(--ink); border-color: var(--ink); color: #fff; }
+@media (min-width: 48em) { .parts-chips { flex-wrap: wrap; justify-content: center; overflow: visible; } }
+
+/* Cards */
+.parts-grid { display: grid; grid-template-columns: 1fr; gap: var(--s4); }
+@media (min-width: 40em) { .parts-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 64em) { .parts-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s5) var(--s4); } }
+.part-card { display: flex; flex-direction: column; min-width: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; }
+.part-card[hidden] { display: none; }
+.part-card__media { position: relative; aspect-ratio: 4 / 3; background: var(--line); }
+.part-card__media img { display: block; width: 100%; height: 100%; max-width: none; object-fit: cover; }
+.part-card__placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--s2); width: 100%; height: 100%; color: var(--muted); font-size: 0.875rem; background: var(--tint); }
+.part-card__placeholder .icon { width: 34px; height: 34px; stroke-width: 1.25; }
+.part-card__stock {
+    position: absolute; left: var(--s2); bottom: var(--s2); display: inline-flex; align-items: center; gap: 5px; margin: 0; padding: 3px 8px 3px 7px;
+    color: var(--ink); font-size: 0.6875rem; font-weight: 600; line-height: 1.4; background: rgba(255, 255, 255, 0.94); border-radius: 4px;
+}
+.part-card__stock::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #2f6b3f; }
+.part-card__stock--out::before { background: var(--accent); }
+
+.part-card__body { display: flex; flex-direction: column; flex: 1; padding: var(--s4); }
+.part-card__meta { margin: 0 0 var(--s1); color: var(--muted); font-size: 0.75rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+.part-card__title { margin: 0; font-size: 1.0625rem; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
+.part-card__number { margin: var(--s1) 0 0; color: var(--muted); font-size: 0.8125rem; overflow-wrap: anywhere; }
+
+/* Compatible vehicles: the point of the card, so it gets its own quiet panel */
+.part-card__fits { margin: var(--s3) 0 0; padding: var(--s3); background: var(--tint); border-radius: var(--radius); }
+.part-card__fits-label { display: flex; align-items: center; gap: 6px; margin: 0 0 var(--s2); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.part-card__fits-label .icon { width: 15px; height: 15px; color: var(--accent); }
+.part-card__fits-list { display: grid; gap: 2px; font-size: 0.8125rem; font-weight: 600; }
+.part-card__fits-list li { overflow-wrap: anywhere; }
+.part-card__fits-list li::before { content: "\2713"; margin-right: 6px; color: #2f6b3f; font-weight: 700; }
+.part-card__fits-list .part-card__fits-more { color: var(--muted); font-weight: 500; }
+.part-card__fits-list .part-card__fits-more::before { content: none; }
+.part-card__fits-none { margin: 0; color: var(--muted); font-size: 0.8125rem; }
+
+.part-card__price { margin: var(--s3) 0 0; font-size: 1.125rem; font-weight: 700; line-height: 1.2; }
+.part-card__actions { display: flex; gap: var(--s2); margin-top: auto; padding-top: var(--s3); }
+.part-card__ask { flex: 1; min-height: 44px; padding-inline: var(--s3); font-size: 0.875rem; }
+.part-card__whatsapp { flex: none; width: 44px; min-height: 44px; padding: 0; color: #fff; background: var(--ink); border-color: var(--ink); }
+.part-card__whatsapp:hover { color: #fff; background: var(--ink-dark); border-color: var(--ink-dark); }
+.part-card__whatsapp .icon { width: 20px; height: 20px; }
+
+.parts-latest__none { margin: 0; padding: var(--s5); text-align: center; color: var(--muted); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); }
+.parts-latest__none[hidden] { display: none; }

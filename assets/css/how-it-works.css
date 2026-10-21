@@ -1,0 +1,42 @@
+/* Homepage "How It Works" (spec 11A): a typographic five-step process joined by one thin line.
+   Phones and tablets: vertical, with the line down the left. Wide screens (1024px and up): horizontal, with the line
+   running through the markers. No cards, shadows, icons or motion. Loaded on the homepage only. */
+
+.process { padding-block: 4rem; background: var(--surface); border-block: 1px solid var(--line); }
+.process__head { max-width: 42rem; margin: 0 auto var(--s6); text-align: center; }
+.process__title { font-size: var(--fs-h2); font-weight: 500; letter-spacing: 0; margin-bottom: var(--s3); }
+.process__intro { color: var(--muted); font-size: var(--fs-body); margin: 0; }
+
+/* Vertical process (default) */
+.process__steps { --dot: 9px; list-style: none; margin: 0; padding: 0; }
+.process__step { position: relative; padding: 0 0 var(--s6) calc(var(--dot) + var(--s5)); }
+.process__step:last-child { padding-bottom: 0; }
+.process__step::before {   /* the line from this step's marker down to the next one */
+    content: ""; position: absolute; left: calc(var(--dot) / 2 - 0.5px); top: 0.55rem; bottom: -0.55rem; width: 1px;
+    background: rgba(107, 114, 128, 0.4);
+}
+.process__step:last-child::before { display: none; }
+.process__step::after {    /* the marker */
+    content: ""; position: absolute; left: 0; top: 0.2rem; width: var(--dot); height: var(--dot); border-radius: 50%; background: var(--accent);
+}
+.process__number { display: block; margin-bottom: var(--s1); color: var(--muted); font-size: 0.8125rem; font-weight: 500; letter-spacing: 0.12em; }
+.process__step-title { font-size: 1.125rem; font-weight: 600; line-height: 1.25; margin: 0 0 var(--s2); letter-spacing: 0; }
+.process__step-text { margin: 0; max-width: 34rem; color: var(--muted); font-size: 0.9375rem; line-height: 1.6; }
+.process__cta { margin: var(--s7) 0 0; text-align: center; }
+
+@media (min-width: 48em) {
+    .process { padding-block: 5rem; }
+    .process__head { margin-bottom: var(--s7); }
+}
+
+/* Horizontal process: five columns, the line runs from marker to marker */
+@media (min-width: 64em) {
+    .process { padding-block: 6rem; }
+    .process__steps { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); column-gap: var(--s6); }
+    .process__step { padding: 2.25rem 0 0; }
+    .process__step::before { left: calc(var(--dot) + var(--s3)); right: calc(var(--s6) * -1 + var(--s3)); top: calc(var(--dot) / 2 - 0.5px); bottom: auto; width: auto; height: 1px; }
+    .process__step::after { top: 0; }
+    .process__number { font-size: 0.875rem; }
+    .process__step-text { font-size: 0.9375rem; max-width: 18rem; }
+    .process__cta { margin-top: var(--s8); }
+}

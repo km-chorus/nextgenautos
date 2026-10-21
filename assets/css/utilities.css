@@ -1,0 +1,65 @@
+/* Homepage "Plan Your Vehicle Import" (spec 11B): one two-part composition, charcoal on the left (tracking) and white on the right
+   (duty), joined by a single thin frame. Custom Amponsah styling only. No JavaScript. Loaded on the homepage only. */
+
+.utilities { padding-block: 4rem; }
+.utilities__head { max-width: 50rem; margin: 0 auto var(--s6); text-align: center; }
+.utilities__eyebrow { margin: 0 0 var(--s3); color: var(--accent); font-size: 0.8125rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; }
+.utilities__title { font-size: var(--fs-h2); font-weight: 500; line-height: 1.2; letter-spacing: 0; margin-bottom: var(--s3); text-wrap: balance; }
+.utilities__intro { max-width: 38rem; margin: 0 auto; color: var(--muted); font-size: var(--fs-body); }
+
+.utilities__grid { display: grid; grid-template-columns: 1fr; border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; background: var(--surface); }
+.utility { display: flex; flex-direction: column; min-width: 0; }
+.utility--track { background: var(--ink); color: #fff; }
+.utility--duty { background: var(--surface); color: var(--ink); border-top: 1px solid var(--line); }
+
+.utility__media { position: relative; aspect-ratio: 16 / 9; overflow: hidden; background: var(--ink-dark); }
+.utility__media img { display: block; width: 100%; height: 100%; max-width: none; object-fit: cover; opacity: 0.92; }
+.utility__media--document { background: var(--page); display: flex; align-items: center; justify-content: center; }
+.utility__sheet { display: block; width: 100%; height: 100%; max-width: none; }
+.sheet__page { fill: var(--surface); stroke: #d1d5db; stroke-width: 1.5; }
+.sheet__bar { fill: #e5e7eb; }
+.sheet__bar--strong { fill: #c9cdd3; }
+.sheet__stamp { fill: none; stroke: var(--accent); stroke-width: 2; }
+
+.utility__badge {   /* the one small icon, in the corner of the picture */
+    position: absolute; right: var(--s4); bottom: var(--s4);
+    display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px;
+    border-radius: var(--radius); background: var(--ink); color: #fff; border: 1px solid rgba(255, 255, 255, 0.35);
+}
+.utility--duty .utility__badge { background: var(--surface); color: var(--ink); border-color: var(--line); }
+.utility__badge .icon { width: 20px; height: 20px; stroke-width: 1.5; }
+
+.utility__body { display: flex; flex-direction: column; flex: 1; padding: var(--s5); }
+.utility__title { font-size: var(--fs-h3); font-weight: 500; line-height: 1.2; letter-spacing: 0; margin: 0 0 var(--s3); }
+.utility__text { margin: 0 0 var(--s5); max-width: 30rem; font-size: 1rem; line-height: 1.6; color: var(--muted); }
+.utility--track .utility__text { color: #c3c7cd; }
+.utility__link {
+    display: inline-flex; align-items: center; gap: var(--s2); align-self: flex-start; margin-top: auto;
+    min-height: 44px; padding: 0 var(--s4); border: 1px solid currentColor; border-radius: var(--radius);
+    color: inherit; font-size: 0.9375rem; font-weight: 500; text-decoration: none;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.utility__link .icon { width: 18px; height: 18px; transition: transform 0.15s ease; }
+.utility__link:hover .icon { transform: translateX(3px); }
+.utility--track .utility__link { border-color: rgba(255, 255, 255, 0.55); }
+.utility--track .utility__link:hover { background: #fff; border-color: #fff; color: var(--ink); }
+.utility--duty .utility__link:hover { background: var(--ink); border-color: var(--ink); color: #fff; }
+.utility--track :focus-visible { outline-color: #fff; }
+
+@media (hover: hover) {
+    .utility__media img { transition: transform 0.5s ease; }
+    .utility:hover .utility__media img { transform: scale(1.02); }
+}
+
+@media (min-width: 48em) {
+    .utilities { padding-block: 5rem; }
+    .utilities__head { margin-bottom: var(--s7); }
+    .utilities__grid { grid-template-columns: 1fr 1fr; }
+    .utility--duty { border-top: 0; border-left: 1px solid var(--line); }
+    .utility__body { padding: var(--s6); }
+}
+@media (min-width: 64em) {
+    .utilities { padding-block: 6rem; }
+    .utility__body { padding: var(--s7) var(--s6) var(--s6); }
+}
+@media (prefers-reduced-motion: reduce) { .utility__media img, .utility__link, .utility__link .icon { transition: none; } }

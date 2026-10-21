@@ -1,0 +1,1892 @@
+
+
+# 1. PURPOSE
+
+Implement the complete core **Vehicle Management** module inside the protected admin application.
+
+Administrators must be able to create, view, edit, search, filter, activate/deactivate, and safely manage vehicles that appear in the company's inventory.
+
+This specification establishes the core vehicle data and CRUD workflow.
+
+**Vehicle image upload, compression, optimization, galleries, and image processing are intentionally excluded and will be implemented separately in Spec 07.**
+
+---
+
+# 2. FOUNDATION
+
+Before implementation, read:
+
+```text
+CLAUDE.md
+PROGRESS.md
+
+Also inspect:
+
+* Spec 01 implementation
+* Spec 02 database implementation
+* Spec 03 admin UI
+* Spec 03B authentication/security
+* Spec 04 dashboard
+* Spec 05 Brand Management
+* current `vehicles` database table
+* current `brands` table
+* existing controller/service/model/repository patterns
+* existing validation
+* existing CSRF protection
+* existing audit logging
+
+The existing architecture and security implementation are authoritative.
+
+Do not create a competing architecture.
+
+---
+
+# 3. SCOPE
+
+Implement:
+
+* Vehicle listing
+* Vehicle search
+* Vehicle filtering
+* Add vehicle
+* Edit vehicle
+* View vehicle
+* Vehicle availability/status
+* Brand relationship
+* Vehicle slug
+* Vehicle specifications
+* Pricing
+* Currency
+* Description
+* Key features/specifications
+* Shipping information
+* Duty-included status
+* Vehicle activation/deactivation
+* Safe deletion rules
+* Server-side validation
+* CSRF protection
+* Authorization
+* Audit logging
+* Responsive admin UI
+* Empty states
+* Error states
+* Success feedback
+
+---
+
+# 4. OUT OF SCOPE
+
+Do NOT implement:
+
+* Vehicle image uploading
+* Image compression
+* WebP conversion
+* Image resizing
+* Image galleries
+* Image reordering
+* Image deletion
+* Browser image compression
+* Intervention Image
+* Image upload APIs
+* Shipment Management
+* Tracking
+* Enquiries
+* Customer accounts
+* Vehicle purchasing/payment
+* Financing
+* Duty calculation
+* Automatic customs valuation
+* Hapag-Lloyd integration
+* Live shipment tracking
+* Brevo
+* Team Management
+* Content Management
+* Settings
+* AI recommendations
+* AI chatbot
+* public vehicle redesign unless explicitly required for integration
+
+These will be handled by later specifications.
+
+---
+
+# 5. BUSINESS CONTEXT
+
+The platform's customer journey is:
+
+```text
+Browse Cars
+    ↓
+View Vehicle Details
+    ↓
+Calculate Duty
+    ↓
+Purchase / Contact Us
+    ↓
+Track Shipment
+```
+
+Vehicle Management provides the core inventory information required for that journey.
+
+Each vehicle must contain enough accurate information for a customer to understand the vehicle and, where applicable, use the approved external duty calculator.
+
+---
+
+# 6. VEHICLE DATA MODEL
+
+Use the existing `vehicles` table.
+
+Inspect the actual schema before coding.
+
+The conceptual vehicle record contains:
+
+```text
+id
+brand_id
+year
+make
+model
+trim
+engine_size
+price
+currency
+description
+key_features/specifications
+shipping_info
+duty_included
+availability/status
+slug
+created_at
+updated_at
+```
+
+Do not blindly recreate the table.
+
+If the actual schema differs, adapt to the existing approved schema and document the difference.
+
+---
+
+# 7. BRAND RELATIONSHIP
+
+Every vehicle must belong to a valid brand.
+
+Relationship:
+
+```text
+Brand
+   ↓
+Vehicle
+```
+
+Use:
+
+```text
+vehicles.brand_id
+        ↓
+brands.id
+```
+
+A vehicle cannot be created with:
+
+* nonexistent brand ID
+* invalid brand ID
+* arbitrary brand text when the database expects a relationship
+
+Do not duplicate the brand name inside the vehicle table unless the existing schema specifically requires it.
+
+---
+
+# 8. ACTIVE BRAND RULE
+
+When adding or editing a vehicle:
+
+Only **active brands** should be selectable for normal vehicle assignment.
+
+Inactive brands should not appear as selectable choices for new vehicles.
+
+Existing vehicles associated with a brand that later becomes inactive must remain intact.
+
+Do not automatically change or delete those vehicles.
+
+---
+
+# 9. VEHICLE STATUS
+
+Use the existing approved vehicle availability/status convention if already defined in the database.
+
+If no final convention exists, establish a simple controlled status set appropriate for inventory:
+
+```text
+AVAILABLE
+RESERVED
+SOLD
+INACTIVE
+```
+
+Do not introduce a large number of unnecessary statuses.
+
+### AVAILABLE
+
+Vehicle is currently available for customer enquiries/purchase.
+
+### RESERVED
+
+Vehicle is temporarily reserved.
+
+### SOLD
+
+Vehicle has been sold.
+
+### INACTIVE
+
+Vehicle is hidden from normal active inventory without being deleted.
+
+If the existing schema already has a different approved status set, preserve it rather than introducing this one.
+
+---
+
+# 10. VEHICLE LIST PAGE
+
+Create the real Vehicle Management page.
+
+Suggested route:
+
+```text
+/admin/vehicles/
+```
+
+or the architecture-compatible equivalent.
+
+The existing sidebar **Vehicles** item must point to this real module.
+
+---
+
+# 11. PAGE HEADER
+
+Display:
+
+**Vehicles**
+
+Supporting text should briefly explain that administrators can manage the company's vehicle inventory.
+
+Primary action:
+
+**Add Vehicle**
+
+Keep the heading area concise.
+
+Do not add unnecessary dashboard-style statistics to the page.
+
+---
+
+# 12. VEHICLE LIST
+
+Use a productivity-focused table on desktop.
+
+Suggested columns:
+
+```text
+Vehicle
+Brand
+Year
+Price
+Status
+Created
+Actions
+```
+
+The exact presentation may adapt to the existing admin UI.
+
+Do not display every database field in the table.
+
+---
+
+# 13. VEHICLE IDENTIFICATION
+
+The primary vehicle label should clearly identify:
+
+```text
+Year + Brand + Model
+```
+
+Example:
+
+```text
+2024 Toyota Camry
+```
+
+If trim exists:
+
+```text
+2024 Toyota Camry XSE
+```
+
+Do not use internal database IDs as the primary vehicle identifier in the interface.
+
+---
+
+# 14. SEARCH
+
+Implement server-side vehicle search.
+
+Search should support useful vehicle identification fields such as:
+
+* brand name
+* model
+* trim
+* year
+* slug
+
+Use prepared statements.
+
+Do not construct SQL using raw query strings.
+
+---
+
+# 15. FILTERING
+
+Provide useful filters without overloading the interface.
+
+At minimum:
+
+### Brand
+
+Select from available brands.
+
+### Status
+
+Use the approved vehicle statuses.
+
+Example:
+
+```text
+All
+Available
+Reserved
+Sold
+Inactive
+```
+
+### Year
+
+If practical, provide a year filter.
+
+Do not build unnecessary advanced filtering in the admin module.
+
+---
+
+# 16. SORTING
+
+Default sorting:
+
+```text
+created_at DESC
+```
+
+Newest vehicles should appear first.
+
+If the project already establishes another inventory ordering convention, preserve it.
+
+Sorting must be deterministic.
+
+---
+
+# 17. PAGINATION
+
+Use pagination if the existing application architecture supports it cleanly.
+
+Vehicle inventory can become significantly larger than the initial brand list, so avoid loading hundreds/thousands of records unnecessarily.
+
+If pagination is implemented:
+
+* use server-side pagination
+* validate page values
+* use safe LIMIT/OFFSET handling
+* display current page context
+* preserve search/filter parameters
+
+Do not introduce a heavy pagination library for this.
+
+---
+
+# 18. EMPTY STATE
+
+If no vehicles exist:
+
+Display:
+
+> No vehicles have been added yet.
+
+Provide:
+
+**Add Vehicle**
+
+Do not create fake vehicles.
+
+---
+
+# 19. NO SEARCH RESULTS
+
+If search/filter produces no matches:
+
+Display:
+
+> No vehicles match your current search or filters.
+
+Provide an option to clear filters/search.
+
+---
+
+# 20. ADD VEHICLE
+
+Create a real vehicle creation form.
+
+Suggested route:
+
+```text
+/admin/vehicles/create
+```
+
+or existing architecture-compatible equivalent.
+
+The form should be organized into logical sections rather than one enormous undifferentiated form.
+
+Suggested sections:
+
+```text
+Vehicle Information
+Pricing
+Specifications
+Description
+Shipping Information
+Availability
+```
+
+Do not create a separate image section because image management is Spec 07.
+
+---
+
+# 21. VEHICLE INFORMATION FIELDS
+
+Required/available fields should include:
+
+### Brand
+
+Required.
+
+Use a select/dropdown populated from active brands.
+
+Do not allow arbitrary brand text.
+
+### Year
+
+Required.
+
+Validate as a sensible vehicle model year.
+
+Do not hardcode a narrow year range that will become obsolete.
+
+A reasonable validation approach is to prevent impossible/future values beyond the project's approved business rules.
+
+### Model
+
+Required.
+
+Example:
+
+```text
+Camry
+Civic
+CX-5
+```
+
+### Trim
+
+Optional unless required by the business.
+
+Examples:
+
+```text
+XSE
+Sport
+Touring
+EX-L
+```
+
+### Engine Size
+
+Optional if the vehicle data does not provide it.
+
+Examples:
+
+```text
+2.0L
+2.5L
+3.5L
+```
+
+Store consistently according to the existing schema.
+
+Do not attempt to infer engine specifications automatically.
+
+---
+
+# 22. MAKE FIELD
+
+Inspect the current database schema.
+
+If `make` exists as a required vehicle field, populate it consistently from the selected brand.
+
+For example:
+
+```text
+Brand: Toyota
+Make: Toyota
+```
+
+Do not allow the administrator to create contradictory data such as:
+
+```text
+Brand: Toyota
+Make: BMW
+```
+
+If `make` is redundant with `brand`, preserve the existing schema but prevent inconsistent values.
+
+Do not redesign the database during this specification unless necessary.
+
+---
+
+# 23. PRICE
+
+Price is a core vehicle field.
+
+Required considerations:
+
+* numeric validation
+* fixed decimal precision appropriate to the database
+* no negative prices
+* correct currency
+* safe display formatting
+
+Do not use floating-point arithmetic for financial calculations.
+
+The vehicle price is a stored business value, not a duty calculation.
+
+---
+
+# 24. CURRENCY
+
+Use the currency convention already established by the database/project.
+
+If the project currently supports a single selling currency, preserve that design.
+
+If the existing vehicle table has a currency field, use it.
+
+Do not introduce multiple currencies or exchange-rate functionality.
+
+Do not implement currency conversion.
+
+---
+
+# 25. DESCRIPTION
+
+Provide a vehicle description field.
+
+It should support enough text for a useful customer-facing description.
+
+Validate maximum length against the actual database column.
+
+Store the content safely.
+
+When displayed later:
+
+* escape output
+* do not trust database content
+* do not allow arbitrary executable HTML
+
+Do not add a rich-text editor unless separately approved.
+
+A normal textarea is sufficient for this specification.
+
+---
+
+# 26. KEY FEATURES / SPECIFICATIONS
+
+The vehicle must support key specifications/features.
+
+First inspect the existing database implementation.
+
+If the current schema stores this as JSON/text, use the existing structure.
+
+If it uses a normalized structure, follow that implementation.
+
+Do not create a second feature storage system.
+
+The administrator should be able to enter structured or clearly formatted feature information appropriate to the existing schema.
+
+Examples may include:
+
+```text
+Sunroof
+Leather interior
+Apple CarPlay
+Blind spot monitoring
+Backup camera
+```
+
+Do not invent features.
+
+Do not automatically generate specifications.
+
+---
+
+# 27. SHIPPING INFORMATION
+
+Vehicle records must support shipping information.
+
+Examples of legitimate information:
+
+* shipping origin
+* shipping notes
+* estimated shipping information
+* destination information
+* other approved shipping details
+
+Use the existing `shipping_info` field/schema.
+
+Do not create live shipment tracking here.
+
+Do not generate container numbers here.
+
+Do not assign a shipment record here.
+
+Shipment Management will be implemented separately.
+
+---
+
+# 28. DUTY INCLUDED
+
+The vehicle must support the approved duty status.
+
+Use the existing `duty_included` database field.
+
+The administrator must be able to indicate whether the displayed vehicle price includes duty.
+
+Use an explicit UI control such as:
+
+```text
+Duty Included
+[ Yes / No ]
+```
+
+Do not calculate duty.
+
+Do not estimate duty.
+
+Do not display invented duty amounts.
+
+---
+
+# 29. EXTERNAL DUTY CALCULATOR
+
+The website does not calculate Ghana import duty.
+
+The approved external calculator is:
+
+`https://autodutychecker.com/calculator/search-mode/`
+
+The Vehicle Management module does not need to implement the calculator itself.
+
+If the existing public vehicle-detail implementation already links to the approved calculator, preserve it.
+
+Do not add an internal duty calculation engine.
+
+---
+
+# 30. SLUG
+
+Every vehicle must have a unique URL-safe slug.
+
+Example:
+
+```text
+2024 Toyota Camry XSE
+```
+
+could become:
+
+```text
+2024-toyota-camry-xse
+```
+
+The exact slug convention should follow the existing project convention.
+
+Requirements:
+
+* unique
+* URL-safe
+* lowercase where appropriate
+* no unsafe characters
+* deterministic
+* validated server-side
+
+---
+
+# 31. SLUG GENERATION
+
+When creating a vehicle:
+
+If the project convention automatically generates a slug, generate it from the vehicle identity fields.
+
+For example:
+
+```text
+year + brand + model + trim
+```
+
+If the administrator is allowed to edit the slug, validate it.
+
+Do not silently create duplicate slugs.
+
+---
+
+# 32. DUPLICATE VEHICLES
+
+Do not automatically prevent vehicles with the same:
+
+```text
+brand + model + year
+```
+
+because legitimate inventory may contain multiple units of the same vehicle.
+
+Do not invent an overly restrictive uniqueness rule.
+
+Only the slug must be unique unless the business rules specify otherwise.
+
+---
+
+# 33. EDIT VEHICLE
+
+Administrators must be able to edit existing vehicles.
+
+Suggested route:
+
+```text
+/admin/vehicles/edit?id={id}
+```
+
+or architecture-compatible equivalent.
+
+Editable fields include:
+
+* brand
+* year
+* model
+* trim
+* engine size
+* price
+* currency where supported
+* description
+* key specifications/features
+* shipping information
+* duty included
+* status
+* slug
+
+Do not allow primary key modification.
+
+---
+
+# 34. VIEW VEHICLE
+
+Provide a vehicle details/view page in the admin area.
+
+Display organized information:
+
+### Identity
+
+* brand
+* year
+* model
+* trim
+* slug
+
+### Pricing
+
+* price
+* currency
+* duty included
+
+### Specifications
+
+* engine
+* key features/specifications
+
+### Description
+
+* vehicle description
+
+### Shipping
+
+* shipping information
+
+### Inventory
+
+* status
+* created date
+* updated date
+
+### Images
+
+Since image management is not part of this specification:
+
+Display an appropriate empty state/place-holder area such as:
+
+> Vehicle images will be managed separately.
+
+Do not implement image upload here.
+
+---
+
+# 35. STATUS MANAGEMENT
+
+Administrators must be able to change vehicle status.
+
+State-changing operations must use secure POST requests.
+
+Do not use GET for:
+
+* activate
+* deactivate
+* reserve
+* mark sold
+* delete
+
+Use the project's existing CSRF implementation.
+
+---
+
+# 36. DELETION
+
+Vehicle deletion must be handled carefully because future shipments may reference vehicles.
+
+Before implementing deletion, inspect the current foreign-key relationships.
+
+Potential future relationship:
+
+```text
+Vehicle
+   ↓
+Shipment
+```
+
+If a vehicle is referenced by a shipment, do not allow destructive deletion.
+
+Preferred behavior:
+
+> This vehicle cannot be deleted because it is associated with shipment records. Change its status instead.
+
+If the current database has no shipment relationship yet, still implement deletion defensively according to the actual schema.
+
+Do not disable foreign-key checks.
+
+Do not cascade-delete shipment records.
+
+---
+
+# 37. PREFER DEACTIVATION
+
+For inventory records, deactivation should generally be preferred over destructive deletion.
+
+Examples:
+
+* vehicle sold
+* vehicle withdrawn
+* vehicle no longer available
+* historical record needs to remain
+
+Use status changes where appropriate.
+
+Deletion should be reserved for genuinely erroneous/unreferenced records.
+
+---
+
+# 38. DELETE CONFIRMATION
+
+If deletion is allowed:
+
+Require explicit confirmation.
+
+Example:
+
+> Delete 2024 Toyota Camry?
+
+Supporting text:
+
+> This action cannot be undone.
+
+The server must independently enforce all deletion rules.
+
+Do not rely on JavaScript confirmation as the security mechanism.
+
+---
+
+# 39. SERVER-SIDE VALIDATION
+
+Validate every submitted field on the server.
+
+Do not rely only on HTML attributes.
+
+Validate:
+
+* brand ID
+* year
+* model
+* trim
+* engine size
+* price
+* currency
+* description
+* features/specifications
+* shipping information
+* duty included
+* status
+* slug
+* vehicle ID
+
+---
+
+# 40. BRAND VALIDATION
+
+When a vehicle is submitted:
+
+1. Confirm brand ID is valid.
+2. Confirm the brand exists.
+3. Confirm the brand is active for new assignment.
+4. Store the valid foreign key.
+
+Do not trust the browser's selected brand.
+
+---
+
+# 41. YEAR VALIDATION
+
+Year must:
+
+* be numeric
+* be an integer
+* be within a sensible range
+* satisfy the actual database constraints
+
+Do not accept:
+
+```text
+abc
+-2024
+999999
+```
+
+Do not create an arbitrary permanent upper limit that prevents future vehicles.
+
+---
+
+# 42. PRICE VALIDATION
+
+Price must:
+
+* be numeric
+* be greater than or equal to zero according to business rules
+* fit the database precision
+* reject malformed values
+* avoid floating-point financial calculations
+
+Do not accept arbitrary formatted currency strings if the database expects a numeric value.
+
+Normalize input before storing.
+
+---
+
+# 43. STATUS VALIDATION
+
+Status must be one of the approved values.
+
+Never trust a hidden input for status.
+
+Validate it server-side.
+
+---
+
+# 44. ID VALIDATION
+
+Never trust vehicle IDs from the browser.
+
+Validate:
+
+* correct format
+* existence
+* authorized operation
+
+Use prepared statements.
+
+---
+
+# 45. CSRF
+
+All state-changing vehicle operations require CSRF protection:
+
+* create
+* update
+* status change
+* delete
+
+Use the existing CSRF system.
+
+Do not create another token system.
+
+---
+
+# 46. XSS PROTECTION
+
+Escape all vehicle data when rendered.
+
+This includes:
+
+* model
+* trim
+* description
+* specifications
+* shipping information
+* slug
+* search parameters
+* status labels
+
+Do not trust administrator-entered content simply because only admins can enter it.
+
+---
+
+# 47. SQL INJECTION PROTECTION
+
+Use PDO prepared statements for every database query.
+
+Never concatenate raw:
+
+* vehicle IDs
+* brand IDs
+* search strings
+* filters
+* sort parameters
+
+into SQL.
+
+---
+
+# 48. AUTHORIZATION
+
+Use the existing admin authentication and authorization mechanism.
+
+Unauthenticated users must be blocked.
+
+Unauthorized users must not be able to manipulate vehicles.
+
+Do not rely only on hiding buttons.
+
+The server must enforce authorization.
+
+---
+
+# 49. AUDIT LOGGING
+
+Use the existing audit/security logging mechanism.
+
+Recommended events:
+
+```text
+VEHICLE_CREATED
+VEHICLE_UPDATED
+VEHICLE_STATUS_CHANGED
+VEHICLE_DELETION_ATTEMPTED
+VEHICLE_DELETED
+```
+
+Where appropriate, record:
+
+* admin user ID
+* vehicle ID
+* action
+* result
+* timestamp
+
+Do not log:
+
+* passwords
+* session IDs
+* CSRF tokens
+* database credentials
+* TOTP secrets
+* recovery codes
+* encryption keys
+
+---
+
+# 50. ERROR HANDLING
+
+Expected errors must produce useful user-facing messages.
+
+Examples:
+
+### Vehicle not found
+
+> The requested vehicle could not be found.
+
+### Invalid brand
+
+> Please select a valid vehicle brand.
+
+### Duplicate slug
+
+> This vehicle URL is already in use.
+
+### Invalid price
+
+> Please enter a valid vehicle price.
+
+### Referenced vehicle deletion
+
+> This vehicle cannot be deleted because it is associated with shipment records. Change its status instead.
+
+### Database failure
+
+Show a safe generic error.
+
+Do not expose:
+
+* SQL
+* stack traces
+* filesystem paths
+* database credentials
+* internal exceptions
+
+---
+
+# 51. FORM ERROR HANDLING
+
+When validation fails:
+
+* preserve valid submitted values
+* display field-specific errors
+* clearly identify invalid fields
+* do not erase the entire form
+* do not expose internal validation details
+
+---
+
+# 52. SUCCESS FEEDBACK
+
+Provide appropriate feedback:
+
+> Vehicle created successfully.
+
+> Vehicle updated successfully.
+
+> Vehicle status updated successfully.
+
+> Vehicle deleted successfully.
+
+Use the existing admin notification pattern.
+
+---
+
+# 53. FORM UX
+
+Use clear sections.
+
+Recommended structure:
+
+```text
+Vehicle Information
+-------------------
+Brand
+Year
+Model
+Trim
+Engine Size
+
+Pricing
+-------
+Price
+Currency
+Duty Included
+
+Description
+-----------
+Description
+
+Specifications
+--------------
+Key Features / Specifications
+
+Shipping
+--------
+Shipping Information
+
+Inventory
+---------
+Status
+Slug
+```
+
+Do not make the form visually overwhelming.
+
+---
+
+# 54. RESPONSIVE FORM
+
+At mobile widths:
+
+* use one column
+* full-width controls
+* readable labels
+* accessible buttons
+* no horizontal scrolling
+* logical section spacing
+
+At desktop:
+
+* use available width intelligently
+* group related fields
+* avoid excessively wide text fields
+* keep the form comfortable to scan
+
+---
+
+# 55. ADMIN UI DESIGN
+
+Follow the existing approved admin design system.
+
+Palette:
+
+```text
+Deep Charcoal #111315
+Warm White   #F8F7F4
+White        #FFFFFF
+Secondary    #62666A
+Border       #E3E3DF
+Accent       #9E2F2F
+```
+
+Typography:
+
+```text
+Manrope
+```
+
+Do not introduce purple.
+
+Do not use emojis.
+
+Do not introduce random gradients or decorative effects.
+
+Keep the module productivity-focused.
+
+---
+
+# 56. VEHICLE TABLE ACTIONS
+
+Suggested actions:
+
+```text
+View
+Edit
+Change Status
+Delete
+```
+
+Keep actions compact.
+
+Do not turn every action into a large button.
+
+Use the established Brand Management action pattern.
+
+---
+
+# 57. PUBLIC INVENTORY COMPATIBILITY
+
+This specification primarily implements admin management.
+
+If the existing public vehicle listing/details already consume the `vehicles` table, ensure the new CRUD records remain compatible.
+
+Do not redesign public pages.
+
+Do not introduce new public routing unless required by the existing architecture.
+
+Public pages should eventually display:
+
+* vehicle identity
+* price
+* specifications
+* shipping information
+* duty status
+* availability
+
+Image integration will be handled by Spec 07.
+
+---
+
+# 58. NO DUTY CALCULATION
+
+This is a strict business rule.
+
+The application must NOT:
+
+* calculate Ghana import duty
+* estimate customs duty
+* display invented duty amounts
+* create a duty formula
+* scrape a third-party duty calculator
+* claim that an estimated amount is official
+
+The approved external duty calculator remains the source for customer duty calculations.
+
+---
+
+# 59. NO SHIPPING TRACKING
+
+Vehicle Management must NOT:
+
+* generate container numbers
+* create live tracking data
+* call Hapag-Lloyd
+* scrape Hapag-Lloyd
+* display fabricated shipment status
+* create shipment records
+
+Those belong to Shipment/Tracking specifications.
+
+---
+
+# 60. ARCHITECTURE
+
+Follow:
+
+```text
+Browser
+   ↓
+Vehicle Controller
+   ↓
+Validation
+   ↓
+Vehicle Service
+   ↓
+Vehicle Repository/Model
+   ↓
+PDO
+   ↓
+MySQL
+   ↓
+View
+```
+
+Views must not contain database queries.
+
+Controllers must not become large business-logic files.
+
+Services must contain business rules.
+
+Repositories/models must handle data access.
+
+---
+
+# 61. REUSE BRAND PATTERNS
+
+Brand Management should be treated as the reference CRUD implementation.
+
+Reuse established patterns for:
+
+* authentication
+* authorization
+* controllers
+* services
+* repositories/models
+* validation
+* CSRF
+* audit logging
+* alerts
+* tables
+* forms
+* responsive layouts
+* error handling
+
+Do not copy code blindly.
+
+Reuse architecture and patterns.
+
+---
+
+# 62. DATABASE CHANGES
+
+Before making schema changes:
+
+1. Inspect the existing `vehicles` table.
+2. Compare it with this specification.
+3. Determine whether required fields already exist.
+4. Determine whether indexes/constraints exist.
+5. Only modify the schema where genuinely necessary.
+
+Potential useful indexes may include:
+
+* `brand_id`
+* `status`
+* `year`
+* `slug`
+* `created_at`
+
+Do not add indexes without considering the actual query patterns.
+
+Slug should be unique.
+
+Do not remove existing foreign keys.
+
+---
+
+# 63. FEATURE STORAGE
+
+Before modifying feature/specification storage, inspect the current implementation.
+
+Possible existing approaches:
+
+```text
+JSON
+TEXT
+normalized vehicle_features table
+```
+
+Use the established approach.
+
+Do not introduce a second storage format.
+
+If the current schema does not adequately support structured features, document the problem before making a schema decision.
+
+Do not silently redesign the data model.
+
+---
+
+# 64. SEARCH QUERY
+
+Search must be implemented safely.
+
+Conceptually:
+
+```text
+brand name
+OR model
+OR trim
+OR slug
+```
+
+If year search is supported, validate and parameterize it.
+
+Do not concatenate search input directly into SQL.
+
+---
+
+# 65. FILTER COMBINATION
+
+Search and filters should work together.
+
+Example:
+
+```text
+Brand = Toyota
+Status = Available
+Search = Camry
+```
+
+should return vehicles satisfying all selected criteria.
+
+Do not treat each filter as a separate page.
+
+---
+
+# 66. QUERY EFFICIENCY
+
+Avoid N+1 queries.
+
+For example, do not retrieve 50 vehicles and then run a separate brand query for each vehicle.
+
+Use an appropriate join or efficient data-loading strategy.
+
+---
+
+# 67. SECURITY TESTING
+
+Test:
+
+### Authentication
+
+Unauthenticated access must fail.
+
+### Authorization
+
+Unauthorized users must not perform vehicle actions.
+
+### CSRF
+
+State-changing requests without valid CSRF must fail.
+
+### SQL Injection
+
+Test search, IDs, brand filters, and submitted fields.
+
+### XSS
+
+Test:
+
+```text
+<script>alert(1)</script>
+```
+
+and equivalent payloads in text fields.
+
+Output must be escaped.
+
+### ID Tampering
+
+Attempt to edit/delete another vehicle by changing the ID.
+
+Server-side authorization and validation must still apply.
+
+### Method Tampering
+
+Attempt destructive actions through GET.
+
+They must not execute.
+
+---
+
+# 68. TESTING — CREATE
+
+Test:
+
+1. Create valid vehicle.
+2. Missing brand.
+3. Invalid brand.
+4. Missing year.
+5. Invalid year.
+6. Missing model.
+7. Invalid price.
+8. Negative price.
+9. Invalid status.
+10. Duplicate slug.
+11. Invalid CSRF.
+12. Unauthenticated request.
+
+---
+
+# 69. TESTING — EDIT
+
+Test:
+
+1. Edit valid vehicle.
+2. Change brand.
+3. Change price.
+4. Change specifications.
+5. Change status.
+6. Duplicate slug.
+7. Invalid vehicle ID.
+8. Invalid CSRF.
+9. Unauthorized request.
+
+---
+
+# 70. TESTING — STATUS
+
+Test:
+
+1. Available → Reserved.
+2. Reserved → Available.
+3. Available → Sold.
+4. Sold → Inactive if business rules allow.
+5. Invalid status value.
+6. CSRF failure.
+7. Unauthorized request.
+
+Do not allow invalid status transitions if the existing business rules define restrictions.
+
+If no transition restrictions exist, document the allowed transitions.
+
+---
+
+# 71. TESTING — DELETE
+
+Test:
+
+1. Delete valid unreferenced vehicle if deletion is permitted.
+2. Attempt deletion of referenced vehicle.
+3. Invalid vehicle ID.
+4. Missing CSRF.
+5. Unauthorized request.
+6. GET deletion attempt.
+
+Expected result:
+
+No orphaned records.
+
+No foreign-key bypass.
+
+---
+
+# 72. TESTING — LISTING
+
+Test:
+
+* initial vehicle list
+* search
+* brand filter
+* status filter
+* combined filters
+* clear filters
+* sorting
+* pagination if implemented
+* empty state
+* no-result state
+
+---
+
+# 73. RESPONSIVE TESTING
+
+Test at:
+
+```text
+320px
+375px
+390px
+414px
+768px
+1024px
+1280px
+1440px+
+```
+
+Verify:
+
+* no horizontal overflow
+* forms remain usable
+* tables remain usable
+* actions remain accessible
+* filters remain usable
+* navigation remains functional
+* text does not overlap
+* buttons do not become inaccessible
+
+---
+
+# 74. BROWSER TESTING
+
+Verify:
+
+* no JavaScript console errors
+* no PHP warnings/notices
+* no broken assets
+* no broken links
+* no accidental debug output
+* no SQL errors visible to users
+
+---
+
+# 75. PRESERVE EXISTING FUNCTIONALITY
+
+After implementation verify:
+
+* admin login works
+* 2FA works
+* password reset remains functional
+* logout works
+* dashboard works
+* Brand Management works
+* sidebar navigation works
+* database connection works
+* existing security controls remain active
+
+Do not break previous modules.
+
+---
+
+# 76. TEST DATA
+
+Use controlled local test data only.
+
+Do not leave arbitrary fake vehicles in the approved production dataset.
+
+The approved 12 brands are legitimate seed data.
+
+Vehicles should be created only as deliberate test records during development and removed if they are not intended to remain.
+
+---
+
+# 77. PROGRESS TRACKING
+
+After implementation and successful testing, update:
+
+```text
+PROGRESS.md
+```
+
+Record:
+
+```text
+Spec 06 — Vehicle Management
+Status: Implemented
+```
+
+Include:
+
+* major files changed
+* database changes
+* security controls
+* tests performed
+* known issues
+* next module
+
+Next planned module:
+
+```text
+Spec 07 — Vehicle Image Management
+```
+
+Do not mark Spec 06 complete if critical tests fail.
+
+---
+
+# 78. REQUIRED COMPLETION REPORT
+
+Claude Code must return:
+
+## IMPLEMENTED
+
+Summary of completed Vehicle Management functionality.
+
+## FILES CHANGED
+
+Every created/modified file.
+
+## DATABASE CHANGES
+
+Every schema/index/constraint change.
+
+## VEHICLE DATA MODEL
+
+Explain how vehicle fields are stored.
+
+## BRAND RELATIONSHIP
+
+Explain how vehicles reference brands.
+
+## SECURITY
+
+Report:
+
+* authentication
+* authorization
+* CSRF
+* validation
+* prepared statements
+* XSS prevention
+* ID validation
+* audit logging
+* safe errors
+
+## TESTING
+
+Report actual results:
+
+```text
+PASS
+FAIL
+NOT TESTED
+```
+
+Do not claim tests that were not actually performed.
+
+## RESPONSIVE TESTING
+
+List actual viewport sizes tested.
+
+## KNOWN ISSUES
+
+List all remaining issues.
+
+## OUT OF SCOPE
+
+Confirm that:
+
+* image management was not implemented
+* shipment management was not implemented
+* tracking was not implemented
+* duty calculation was not implemented
+* Brevo was not implemented
+
+## PROGRESS
+
+Confirm whether `PROGRESS.md` was updated.
+
+---
+
+# 79. STOP CONDITION
+
+After Vehicle Management has been:
+
+* implemented
+* tested
+* secured
+* documented
+
+STOP.
+
+Do not begin:
+
+* Vehicle Image Management
+* Shipments
+* Tracking
+* Enquiries
+* Brevo
+* Team
+* Content
+* Settings
+
+The next module will be handled under:
+
+**Specification 07 — Vehicle Image Management**
+
+---
+
+# 80. FINAL PRINCIPLE
+
+Vehicle Management must become the foundation for the rest of the inventory system.
+
+The implementation must prioritize:
+
+```text
+Accurate vehicle data
+        ↓
+Correct brand relationships
+        ↓
+Reliable inventory status
+        ↓
+Secure administration
+        ↓
+Clean customer-facing data
+        ↓
+Future image integration
+        ↓
+Future shipment integration
+```
+
+Do not build temporary shortcuts that will make Image Management or Shipment Management difficult later.
+
+Do not invent requirements.
+
+Do not silently expand scope.
+
+Implement only this specification.

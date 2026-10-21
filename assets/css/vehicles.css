@@ -1,0 +1,187 @@
+/* Vehicle cards and grid (spec 10B; used by the Vehicles page): an editorial showroom grid. Hierarchy comes from type, spacing and the photograph,
+   not from boxes, badges or colour. Server-rendered; works without JavaScript. */
+
+.vehicle-grid { display: grid; grid-template-columns: 1fr; gap: var(--s7) var(--s6); }
+.vehicle-card { display: flex; flex-direction: column; min-width: 0; }
+
+.vehicle-card__media { display: block; aspect-ratio: 4 / 3; background: var(--line); border-radius: var(--radius-lg); overflow: hidden; text-decoration: none; color: inherit; }
+.vehicle-card__media img { display: block; width: 100%; height: 100%; max-width: none; object-fit: cover; }
+.vehicle-card__placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--s2); width: 100%; height: 100%; color: var(--muted); font-size: 0.875rem; background: var(--tint); }
+.vehicle-card__placeholder .icon { width: 34px; height: 34px; stroke-width: 1.25; }
+
+.vehicle-card__body { display: flex; flex-direction: column; flex: 1; padding-top: var(--s4); }
+.vehicle-card__meta { margin: 0 0 var(--s1); color: var(--muted); font-size: 0.8125rem; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; }
+.vehicle-card__title { margin: 0; font-size: 1.125rem; font-weight: 600; line-height: 1.25; letter-spacing: 0; overflow-wrap: anywhere; }
+.vehicle-card__title a { color: var(--ink); text-decoration: none; }
+.vehicle-card__title a:hover { color: var(--muted); }
+.vehicle-card__price { margin: var(--s3) 0 0; padding-bottom: var(--s4); font-size: 1.25rem; font-weight: 700; line-height: 1.2; letter-spacing: 0; }
+.vehicle-card__foot { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); margin-top: auto; padding-top: var(--s2); border-top: 1px solid var(--line); }
+.vehicle-card__status { margin: 0; color: var(--muted); font-size: 0.875rem; }
+.vehicle-card__status--reserved { color: var(--accent); }
+.vehicle-card__link { display: inline-flex; align-items: center; gap: var(--s2); min-height: 44px; color: var(--ink); font-size: 0.9375rem; font-weight: 500; text-decoration: none; white-space: nowrap; }
+.vehicle-card__link:hover { color: var(--muted); }
+.vehicle-card__link .icon { width: 18px; height: 18px; transition: transform 0.2s ease; }
+.vehicle-card__link:hover .icon { transform: translateX(3px); }
+
+@media (hover: hover) {
+    .vehicle-card__media img { transition: transform 0.5s ease; }
+    .vehicle-card:hover .vehicle-card__media img { transform: scale(1.02); }
+}
+
+
+@media (min-width: 40em) { .vehicle-grid { grid-template-columns: repeat(2, 1fr); } }
+
+/* Search form (homepage hero and Vehicles page): a precise, flat instrument panel. */
+.vsearch { display: grid; grid-template-columns: 1fr; gap: var(--s3); padding: var(--s4); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); color: var(--ink); }
+.vsearch__field { min-width: 0; }
+.vsearch__field label { display: block; margin-bottom: 6px; color: var(--muted); font-size: 0.8125rem; font-weight: 500; letter-spacing: 0.02em; }
+.vsearch select {
+    display: block; width: 100%; min-height: 48px; padding: 0 2.25rem 0 0.75rem;
+    font: inherit; font-size: 0.9375rem; font-weight: 400; color: var(--ink); background-color: var(--surface);
+    border: 1px solid #8a8e92; border-radius: var(--radius); cursor: pointer; text-overflow: ellipsis;
+    appearance: none; -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 0.625rem center; background-size: 18px;
+}
+.vsearch select:hover { border-color: var(--ink); }
+.vsearch select:disabled { color: var(--muted); background-color: var(--tint); border-color: var(--line); cursor: not-allowed; }
+.vsearch__submit { min-height: 48px; width: 100%; align-self: end; }
+.vsearch :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+@media (min-width: 48em) { .vsearch { grid-template-columns: 1fr 1fr; } .vsearch__submit { grid-column: 1 / -1; } }   /* below 768px: one column */
+@media (min-width: 62em) {
+    .vsearch { grid-template-columns: repeat(4, minmax(0, 1fr)) auto; gap: var(--s4); padding: var(--s4) var(--s5); align-items: end; }
+    .vsearch__submit { grid-column: auto; width: auto; min-width: 11rem; }
+}
+
+/* Vehicles page (spec 11): filter panel on the left, three-column catalogue grid. Flat, dense, functional. */
+.inventory { padding-block: var(--s6) var(--s8); }
+.inventory__layout { display: block; }
+
+/* Filter panel. Without JavaScript it is simply shown above the results; with it (inventory.js sets .is-js) it is a drawer below 64em. */
+.inv-filters { margin-bottom: var(--s5); padding: var(--s4); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); }
+.inv-filters__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--s4); }
+.inv-filters__title { margin: 0; font-size: 0.8125rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+.inv-filters__close { display: none; align-items: center; justify-content: center; width: 44px; height: 44px; margin: -8px -10px -8px 0; padding: 0; background: none; border: 0; color: var(--ink); cursor: pointer; }
+.inv-filters__close .icon { width: 22px; height: 22px; }
+.inv-field { min-width: 0; margin: 0 0 var(--s4); padding: 0; border: 0; }
+.inv-field label, .inv-field legend { display: block; margin: 0 0 6px; padding: 0; color: var(--muted); font-size: 0.8125rem; font-weight: 500; letter-spacing: 0.02em; }
+.inv-field input[type="search"], .inv-field input[type="text"], .inv-field select, .inv-toolbar__sort select {
+    display: block; width: 100%; min-height: 44px; padding: 0 0.75rem; font: inherit; font-size: 0.9375rem; color: var(--ink); background-color: var(--surface);
+    border: 1px solid #8a8e92; border-radius: var(--radius); text-overflow: ellipsis; appearance: none; -webkit-appearance: none;
+}
+.inv-field input::placeholder { color: var(--muted); opacity: 1; }
+.inv-field select, .inv-toolbar__sort select {
+    padding-right: 2.25rem; cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 0.625rem center; background-size: 18px;
+}
+.inv-field input[type="search"]::-webkit-search-cancel-button { appearance: none; }
+.inv-field input:hover, .inv-field select:hover, .inv-toolbar__sort select:hover { border-color: var(--ink); }
+.inv-field select:disabled { color: var(--muted); background-color: var(--tint); border-color: var(--line); cursor: not-allowed; }
+.inv-field :focus-visible, .inv-toolbar__sort select:focus-visible { outline: 3px solid var(--focus); outline-offset: 1px; }
+.inv-pair { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s2); }
+.inv-filters__actions { display: flex; flex-direction: column; gap: var(--s3); margin-top: var(--s5); }
+.inv-filters__actions .btn { width: 100%; min-height: 46px; }
+.inv-filters__clear { align-self: center; color: var(--ink); font-size: 0.9375rem; font-weight: 500; }
+.inv-filters__clear:hover { color: var(--accent); }
+
+/* Result bar: count, Filters (small screens, JavaScript only) and Sort */
+.inv-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3); margin-bottom: var(--s4); padding-bottom: var(--s3); border-bottom: 1px solid var(--line); }
+.inv-toolbar__count { margin: 0 auto 0 0; color: var(--muted); font-size: 0.9375rem; }
+.inv-toolbar__count strong { color: var(--ink); font-weight: 600; }
+.inv-toolbar__filters { display: inline-flex; align-items: center; min-height: 44px; padding: 0 var(--s4); font: inherit; font-size: 0.9375rem; font-weight: 500; color: var(--ink); background: var(--surface); border: 1px solid var(--ink); border-radius: var(--radius); cursor: pointer; }
+.inv-toolbar__filters[hidden] { display: none; }
+.inv-toolbar__sort { display: flex; align-items: center; gap: var(--s2); }
+.inv-toolbar__sort label { color: var(--muted); font-size: 0.8125rem; font-weight: 500; }
+.inv-toolbar__sort select { width: auto; min-width: 0; max-width: 100%; }
+.inv-toolbar__apply { min-height: 44px; padding: 0 var(--s3); font: inherit; font-size: 0.9375rem; color: var(--ink); background: var(--surface); border: 1px solid var(--ink); border-radius: var(--radius); cursor: pointer; }
+.is-js .inv-toolbar__apply { display: none; }
+
+.inventory__empty { max-width: 36rem; padding-block: var(--s6); }
+.inventory__empty-title { font-size: var(--fs-h3); margin-bottom: var(--s2); }
+.inventory__empty p { color: var(--muted); margin: 0 0 var(--s4); }
+
+/* Pagination */
+.pager { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); margin-top: var(--s7); padding-top: var(--s4); border-top: 1px solid var(--line); }
+.pager__pages { display: flex; align-items: center; gap: var(--s1); }
+.pager__num, .pager__link { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; padding-inline: var(--s3); color: var(--ink); font-size: 0.9375rem; font-weight: 500; text-decoration: none; border: 1px solid transparent; border-radius: var(--radius); }
+.pager__link { border-color: var(--ink); }
+.pager__link:hover, .pager__num:hover { background: var(--ink); color: #fff; }
+.pager__num.is-current { border-color: var(--ink); background: var(--ink); color: #fff; }
+.pager__gap { padding-inline: var(--s1); color: var(--muted); }
+
+/* Drawer (small screens, with JavaScript) */
+.inv-backdrop { position: fixed; inset: 0; z-index: 90; background: rgba(43, 47, 53, 0.45); }
+.inv-backdrop[hidden] { display: none; }
+body.inv-open { overflow: hidden; }
+@media (max-width: 63.99em) {
+    .is-js .inv-filters { position: fixed; inset: 0 auto 0 0; z-index: 100; width: min(22rem, 92vw); margin: 0; overflow-y: auto; overscroll-behavior: contain; border-radius: 0; border-width: 0 1px 0 0; transform: translateX(-100%); visibility: hidden; transition: transform 0.2s ease, visibility 0s linear 0.2s; }
+    .is-js .inv-filters.is-open { transform: none; visibility: visible; transition: transform 0.2s ease; }
+    .is-js .inv-filters__close { display: inline-flex; }
+}
+@media (prefers-reduced-motion: reduce) { .is-js .inv-filters, .is-js .inv-filters.is-open { transition: none; } }
+
+/* Catalogue grid: two columns on every phone and tablet, three beside the filter panel. The card is one tappable surface (the title link covers it). */
+.inventory .vehicle-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s3); }
+:is(.inventory, .latest) .vehicle-card { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; transition: border-color 0.2s ease; }
+:is(.inventory, .latest) .vehicle-card:hover { border-color: var(--line-strong); }
+:is(.inventory, .latest) .vehicle-card:focus-within { outline: 3px solid var(--focus); outline-offset: 2px; }
+:is(.inventory, .latest) .vehicle-card__media { border-radius: 0; }
+:is(.inventory, .latest) .vehicle-card__body { padding: var(--s2) 10px var(--s3); }
+:is(.inventory, .latest) .vehicle-card__meta { margin-bottom: 2px; color: var(--accent); font-size: 0.6875rem; font-weight: 600; }
+:is(.inventory, .latest) .vehicle-card__title { font-size: 0.8125rem; font-weight: 600; line-height: 1.25; }
+:is(.inventory, .latest) .vehicle-card__open::after { content: ""; position: absolute; inset: 0; z-index: 1; }
+:is(.inventory, .latest) .vehicle-card__open:focus-visible { outline: none; }
+/* Labelled details: icon + label on the left, value on the right */
+.vehicle-card__specs { margin: var(--s3) 0 0; padding-top: var(--s2); border-top: 1px solid var(--line); }
+.vehicle-card__spec { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s2); padding: 3px 0; font-size: 0.6875rem; line-height: 1.35; }
+.vehicle-card__spec dt { display: inline-flex; align-items: center; gap: 5px; margin: 0; color: var(--muted); font-weight: 500; white-space: nowrap; }
+.vehicle-card__spec dt .icon { flex: none; width: 15px; height: 15px; color: var(--accent); stroke-width: 1.6; }
+.vehicle-card__spec dd { min-width: 0; margin: 0 0 0 auto; color: var(--ink); font-weight: 600; text-align: right; overflow-wrap: break-word; }
+.vehicle-card__media img[hidden] { display: none; }
+/* Photograph buttons (JavaScript only; hidden until it runs). They sit above the card-wide link. */
+.vehicle-card__nav { position: absolute; top: 50%; z-index: 3; display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; margin: -15px 0 0; padding: 0; color: var(--ink); background: rgba(255, 255, 255, 0.92); border: 0; border-radius: 50%; cursor: pointer; }
+.vehicle-card__nav[hidden] { display: none; }
+.vehicle-card__nav:hover { background: #fff; }
+.vehicle-card__nav:focus-visible { outline: 3px solid var(--focus); outline-offset: 1px; }
+.vehicle-card__nav .icon { width: 16px; height: 16px; stroke-width: 2; }
+.vehicle-card__nav--prev { left: var(--s2); }
+.vehicle-card__nav--next { right: var(--s2); }
+.vehicle-card__count { position: absolute; right: var(--s2); bottom: var(--s2); z-index: 2; margin: 0; padding: 2px 7px; color: #fff; font-size: 0.6875rem; font-weight: 600; line-height: 1.4; background: rgba(43, 47, 53, 0.72); border-radius: 4px; pointer-events: none; }
+.vehicle-card__count[hidden] { display: none; }
+/* Name and price share one row; the status is a mini label on the photograph, bottom left */
+.vehicle-card__figure { position: relative; }
+.vehicle-card__head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 2px var(--s2); }
+:is(.inventory, .latest) .vehicle-card__head .vehicle-card__title { flex: 1 1 3.25rem; min-width: 0; overflow-wrap: break-word; }
+:is(.inventory, .latest) .vehicle-card__price { flex: 0 0 auto; margin: 0; padding: 0; max-width: 100%; font-size: 0.75rem; font-weight: 700; line-height: 1.25; text-align: right; white-space: nowrap; }
+.vehicle-card__duty { display: block; margin-top: 2px; color: var(--muted); font-size: 0.625rem; font-weight: 500; letter-spacing: 0.02em; }
+:is(.inventory, .latest) .vehicle-card__status {
+    position: absolute; left: var(--s2); bottom: var(--s2); z-index: 2; display: inline-flex; align-items: center; gap: 5px; margin: 0; padding: 3px 8px 3px 7px; pointer-events: none;
+    color: var(--ink); font-size: 0.6875rem; font-weight: 600; line-height: 1.4; letter-spacing: 0.02em; background: rgba(255, 255, 255, 0.94); border-radius: 4px;
+}
+:is(.inventory, .latest) .vehicle-card__status::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #2f6b3f; }
+:is(.inventory, .latest) .vehicle-card__status--reserved::before { background: var(--accent); }
+@media (hover: hover) { :is(.inventory, .latest) .vehicle-card:hover .vehicle-card__media img { transform: none; } }
+@media (min-width: 30em) { .inventory .vehicle-grid { gap: var(--s4); } :is(.inventory, .latest) .vehicle-card__body { padding: var(--s4); } :is(.inventory, .latest) .vehicle-card__head .vehicle-card__price { font-size: 0.9375rem; } :is(.inventory, .latest) .vehicle-card__head .vehicle-card__title { flex-basis: 5rem; } :is(.inventory, .latest) .vehicle-card__title { font-size: 1.0625rem; } :is(.inventory, .latest) .vehicle-card__head .vehicle-card__price { font-size: 1.0625rem; } .vehicle-card__spec { font-size: 0.75rem; } .vehicle-card__spec dt .icon { width: 15px; height: 15px; } }
+@media (min-width: 48em) { .inventory .vehicle-grid { gap: var(--s5) var(--s4); } }
+@media (min-width: 64em) {
+    .inventory__layout { display: grid; grid-template-columns: 17.5rem minmax(0, 1fr); gap: var(--s6); align-items: start; }
+    .inv-filters { position: sticky; top: calc(var(--header-h) + var(--s4)); margin: 0; }
+    .inventory .vehicle-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s6) var(--s4); }
+    .inventory { --max: 1360px; }
+}
+@media (min-width: 90em) { .inventory { --max: 1520px; } .inventory__layout { gap: var(--s7); } .inventory .vehicle-grid { gap: var(--s7) var(--s5); } }
+
+/* "Calculate Ghana import duty" (owner request 2026-10-14): a small outline button under the details. It opens the official
+   external calculator in a new tab and sits above the card-wide link (z-index), so it is its own click and tab stop. */
+.vehicle-card__duty-link {
+    position: relative; z-index: 2; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    align-self: flex-start; min-height: 36px; margin-top: var(--s3); padding: 0 var(--s3);
+    color: var(--ink); font-size: 0.75rem; font-weight: 600; line-height: 1.2; text-decoration: none;
+    background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius);
+}
+.vehicle-card__duty-link .icon { width: 15px; height: 15px; color: var(--accent); }
+.vehicle-card__duty-link:hover { border-color: var(--ink); color: var(--ink); }
+.vehicle-card__duty-link:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+@media (max-width: 29.99em) { .inventory .vehicle-card__duty-link { align-self: stretch; padding: 0 var(--s2); font-size: 0.6875rem; } }

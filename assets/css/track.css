@@ -1,0 +1,31 @@
+/* Track Vehicle page (spec 13). Reuses the .process__* step styles from how-it-works.css.
+   Phones: the panel, then the steps. Wide screens: panel and steps side by side. */
+
+.track__signed-in { margin: 0 0 var(--s5); color: var(--muted); }
+.track__grid { display: grid; gap: var(--s6); align-items: start; }
+
+.track-panel { padding: var(--s5); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.track-panel__title, .track-how__title { margin: 0 0 var(--s4); font-size: var(--fs-h3); font-weight: 600; }
+.track-panel__subtitle { margin: var(--s5) 0 var(--s2); font-size: 1.0625rem; font-weight: 600; }
+.track-panel__status { display: flex; gap: var(--s3); align-items: flex-start; margin: 0 0 var(--s4); padding: var(--s3) var(--s4); border-left: 4px solid #2F5D8A; background: var(--page); font-weight: 500; }
+.track-panel__status .icon { flex: none; margin-top: 0.15rem; }
+.track-panel__action { margin: var(--s4) 0; }
+.track-panel__action .btn { width: 100%; }
+.track-panel__note { margin: 0; color: var(--muted); font-size: 0.875rem; }
+.track__help { margin: var(--s6) 0 0; color: var(--muted); }
+
+@media (min-width: 62em) {
+    .track__grid { grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: var(--s7); }
+    .track-panel__action .btn { width: auto; }
+}
+
+/* The steps stay vertical here (the horizontal process of how-it-works.css needs the full page width) */
+@media (min-width: 64em) {
+    .track-how .process__steps { display: block; }
+    .track-how .process__step { padding: 0 0 var(--s6) calc(var(--dot) + var(--s5)); }
+    .track-how .process__step:last-child { padding-bottom: 0; }
+    .track-how .process__step::before { left: calc(var(--dot) / 2 - 0.5px); right: auto; top: 0.55rem; bottom: -0.55rem; width: 1px; height: auto; }
+    .track-how .process__step:last-child::before { display: none; }
+    .track-how .process__step::after { top: 0.2rem; }
+    .track-how .process__step-text { max-width: 34rem; }
+}

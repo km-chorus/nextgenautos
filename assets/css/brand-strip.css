@@ -1,0 +1,60 @@
+/* Homepage "Browse by Brand" (spec 10C): a quiet brand selector. Native horizontal scrolling (swipe, trackpad, keyboard),
+   scroll snapping, arrows added by JavaScript on larger screens. Loaded on the homepage only. */
+
+.brands { padding-block: var(--s7) var(--s8); }
+.brands__head { max-width: 40rem; margin: 0 auto var(--s5); text-align: center; }
+.brands__title { margin-bottom: var(--s2); }
+.brands__intro { color: var(--muted); margin: 0; }
+.brands__empty { margin: 0; padding-block: var(--s5); color: var(--muted); }
+
+.brand-strip { position: relative; }
+
+/* Phones: the strip runs to the screen edges so the next brand visibly peeks in (the hint that it scrolls) */
+.brand-strip__viewport {
+    overflow-x: auto; overflow-y: hidden;
+    margin-inline: calc(var(--gutter) * -1);
+    padding-inline: var(--gutter); scroll-padding-inline: calc(var(--gutter) + 4px);   /* 4px = the track's room for the focus ring, so the first brand snaps to scroll position 0 */
+    scroll-snap-type: x mandatory; overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+}
+.brand-strip__viewport::-webkit-scrollbar { display: none; }
+.brand-strip__track { display: flex; gap: var(--s3); margin: 0; padding: 4px; list-style: none; width: max-content; }
+.brand-strip__item { flex: none; width: clamp(8rem, 38vw, 10.5rem); scroll-snap-align: start; }
+
+.brand-item {
+    display: flex; flex-direction: column; align-items: center; gap: var(--s3);
+    height: 100%; padding: var(--s5) var(--s3) var(--s4);
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg);
+    color: var(--ink); text-decoration: none;
+    transition: border-color 0.15s ease;
+}
+.brand-item:hover { border-color: var(--ink); }
+/* One logo box for every brand: wide and tall logos are contained, never stretched or cropped */
+.brand-item__logo { display: flex; align-items: center; justify-content: center; width: 100%; height: 56px; }
+.brand-item__logo img { display: block; width: 104px; max-width: 100%; height: 56px; object-fit: contain; }
+.brand-item__name { color: var(--muted); font-size: 0.875rem; font-weight: 500; line-height: 1.2; text-align: center; }
+.brand-item:hover .brand-item__name { color: var(--ink); }
+.brand-item__text { font-weight: 600; text-align: center; }
+
+.brand-strip__arrow {
+    display: none; align-items: center; justify-content: center;
+    position: absolute; top: 50%; transform: translateY(-50%); z-index: 1;
+    width: 44px; height: 44px; padding: 0;
+    color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); cursor: pointer;
+}
+.brand-strip__arrow[hidden] { display: none; }
+.brand-strip__arrow:hover:not(:disabled) { border-color: var(--ink); }
+.brand-strip__arrow:disabled { opacity: 0.35; cursor: default; }
+.brand-strip__arrow .icon { width: 22px; height: 22px; stroke-width: 1.5; }
+
+/* Tablets and desktop: the arrows sit outside the strip, centred on it; the strip no longer bleeds to the screen edge */
+@media (min-width: 48em) {
+    .brand-strip { padding-inline: 3.5rem; }
+    .brand-strip__viewport { margin-inline: 0; padding-inline: 0; scroll-padding-inline: 4px; }
+    .brand-strip__arrow:not([hidden]) { display: inline-flex; }
+    .brand-strip__arrow--prev { left: 0; }
+    .brand-strip__arrow--next { right: 0; }
+    .brand-strip__item { width: 10.5rem; }
+}
+@media (prefers-reduced-motion: reduce) { .brand-item { transition: none; } }

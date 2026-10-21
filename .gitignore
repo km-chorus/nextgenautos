@@ -1,0 +1,33 @@
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+app/config/*.local.php
+
+# Dependencies
+vendor/
+node_modules/
+
+# Uploaded media (keep the directories and the execution-protection file)
+uploads/*
+!uploads/.htaccess
+!uploads/vehicles/
+uploads/vehicles/*
+!uploads/vehicles/.gitkeep
+!uploads/team/
+uploads/team/*
+!uploads/team/.gitkeep
+!uploads/parts/
+uploads/parts/*
+!uploads/parts/.gitkeep
+
+# Logs and cache
+logs/
+cache/
+*.log
+
+# Editor / OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

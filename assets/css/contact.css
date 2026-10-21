@@ -1,0 +1,42 @@
+/* Contact page (spec 17). Builds on public.css (buttons, fields, alerts). Phones: details first (WhatsApp is the quickest
+   route), then the form. From 62em: details | form side by side. Flat, bordered; WhatsApp in charcoal (no extra brand colour). */
+
+.contact { display: grid; gap: var(--s5); padding-block: var(--s6) var(--s8); }
+.contact__details, .contact__form { min-width: 0; padding: var(--s5) var(--s4); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); }
+.contact__form { scroll-margin-top: calc(var(--header-h) + var(--s4)); }
+.contact__heading { margin-bottom: var(--s4); }
+.contact__subheading { margin: var(--s5) 0 var(--s3); font-size: 0.8125rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.contact__soon { margin: 0; color: var(--muted); }
+
+.contact__whatsapp { width: 100%; min-height: 50px; background: var(--ink); border-color: var(--ink); color: #fff; font-weight: 600; }
+.contact__whatsapp:hover { background: var(--ink-dark); border-color: var(--ink-dark); color: #fff; }
+.contact__whatsapp .icon { width: 20px; height: 20px; }
+
+.contact__list { margin: var(--s4) 0 0; }
+.contact__item { display: grid; gap: 2px; padding: var(--s3) 0; border-bottom: 1px solid var(--line); }
+.contact__item:first-child { border-top: 1px solid var(--line); }
+.contact__item dt { display: inline-flex; align-items: center; gap: var(--s2); color: var(--muted); font-size: 0.8125rem; font-weight: 600; }
+.contact__item dt .icon { width: 17px; height: 17px; color: var(--accent); }
+.contact__item dd { margin: 0; padding-left: calc(17px + var(--s2)); font-weight: 600; overflow-wrap: anywhere; }
+.contact__item dd a { color: var(--ink); }
+.contact__item dd a:hover { color: var(--accent); }
+.contact__hours { font-weight: 400 !important; line-height: 1.7; }
+
+.contact__socials { display: flex; flex-wrap: wrap; gap: var(--s2); }
+.contact__socials a { display: inline-flex; align-items: center; gap: var(--s2); min-height: 44px; padding: 0 var(--s3); color: var(--ink); font-size: 0.875rem; font-weight: 600; text-decoration: none; border: 1px solid var(--line-strong); border-radius: var(--radius); }
+.contact__socials a:hover { border-color: var(--ink); color: var(--ink); }
+.contact__socials .icon { width: 18px; height: 18px; color: var(--accent); }
+
+.contact__fields { max-width: none; }
+.contact__row { display: grid; gap: var(--s4); }
+.contact__fields .btn { justify-self: start; min-width: 12rem; }
+
+@media (min-width: 40em) {
+    .contact__details, .contact__form { padding: var(--s6); }
+    .contact__row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 62em) {
+    .contact { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: var(--s6); align-items: start; padding-top: var(--s7); }
+    .contact__details { position: sticky; top: calc(var(--header-h) + var(--s4)); }
+}
+@media (max-width: 29.99em) { .contact__fields .btn { justify-self: stretch; } }

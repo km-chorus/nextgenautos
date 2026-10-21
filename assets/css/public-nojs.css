@@ -1,0 +1,11 @@
+/* Loaded only when JavaScript is off (<noscript>): show the navigation inline so every page is reachable. */
+.menu-icon, .site-nav__top { display: none; }
+.site-header { position: static; }
+.site-header__inner { flex-wrap: wrap; padding-block: 0.5rem; }
+.site-nav {
+    position: static; inset: auto; z-index: auto; flex-direction: row; flex-wrap: wrap; align-items: center;
+    padding: 0; background: transparent; overflow: visible;
+    visibility: visible; opacity: 1; transition: none;
+}
+.site-nav__list, .site-nav__utility { flex-direction: row; flex-wrap: wrap; gap: 0 1.25rem; }
+.site-nav__list a, .site-nav__utility a { padding: 0.5rem 0; font-size: 0.9375rem; font-weight: 400; border-bottom: 0; }

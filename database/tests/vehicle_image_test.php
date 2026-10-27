@@ -91,11 +91,11 @@ check('the "not available" sentence names exactly what is missing', str_contains
 $dev = new ReflectionMethod('VehicleImageController', 'developmentDetail'); $dev->setAccessible(true);
 $bs = chr(92);
 $sample = new RuntimeException("Could not open C:{$bs}Users{$bs}someone{$bs}project{$bs}a.webp and /var/www/site/y.php");
-putenv('APP_ENV=development'); $_ENV['APP_ENV'] = 'development';
+putenv('APP_ENV=development'); $_ENV['APP_ENV'] = 'development'; putenv('APP_DEBUG=1');   // the developer detail needs APP_DEBUG=1
 $devText = $dev->invoke(null, $sample);
 putenv('APP_ENV=production'); $_ENV['APP_ENV'] = 'production';
 $prodText = $dev->invoke(null, $sample);
-putenv('APP_ENV=development'); $_ENV['APP_ENV'] = 'development';
+putenv('APP_ENV=development'); $_ENV['APP_ENV'] = 'development'; putenv('APP_DEBUG=1');   // the developer detail needs APP_DEBUG=1
 check('development detail names the exception, hides file-system paths, and is cut short', is_string($devText) && str_starts_with($devText, 'RuntimeException: Could not open [path]') && !str_contains($devText, 'someone') && !str_contains($devText, '/var/www'));
 check('in production there is no detail at all', $prodText === null);
 
@@ -245,13 +245,14 @@ try {
 
     echo "Mixed valid and invalid uploads\n";
     $beforeMixed = count($rows($v1));
+    $rejectedBefore = (int) run($pdo, "SELECT COUNT(*) FROM audit_logs WHERE event_type='VEHICLE_IMAGE_UPLOAD_REJECTED' AND admin_user_id=? AND description LIKE 'Image rejected: %' AND description NOT LIKE '%shell.jpg%'", [$adminId])->fetchColumn();   // real rejections may already exist: count only this run's
     $mixed = $up($v1, [upfile($jpeg, 'ok1.jpg'), upfile(fx_php_script(), 'shell.jpg'), upfile(fx_photo(1000, 800), 'ok2.jpg'), upfile(fx_oversized_jpeg(), 'huge.jpg'), upfile(fx_gif(), 'anim.gif'), upfile('', 'none.jpg', UPLOAD_ERR_INI_SIZE)]);
     $okMap = array_map(static fn ($x) => $x['ok'], $mixed['results']);
     check('each file is judged on its own: ok, rejected, ok, rejected, rejected, rejected', $okMap === [true, false, true, false, false, false], json_encode($okMap));
     check('every failure is reported by (display) name with a clear message', $mixed['results'][1]['name'] === 'shell.jpg' && $mixed['results'][1]['message'] === 'This image format is not supported.'
         && $mixed['results'][3]['message'] === 'The image is too large. Maximum size is 10 MB.' && $mixed['results'][5]['message'] === 'The image is too large. Maximum size is 10 MB.');
     check('only the two valid images were added', count($rows($v1)) === $beforeMixed + 2);
-    check('VEHICLE_IMAGE_UPLOAD_REJECTED audited once per rejected file, with a reason code and no file name', (int) run($pdo, "SELECT COUNT(*) FROM audit_logs WHERE event_type='VEHICLE_IMAGE_UPLOAD_REJECTED' AND admin_user_id=? AND description LIKE 'Image rejected: %' AND description NOT LIKE '%shell.jpg%'", [$adminId])->fetchColumn() === 4);
+    check('VEHICLE_IMAGE_UPLOAD_REJECTED audited once per rejected file, with a reason code and no file name', (int) run($pdo, "SELECT COUNT(*) FROM audit_logs WHERE event_type='VEHICLE_IMAGE_UPLOAD_REJECTED' AND admin_user_id=? AND description LIKE 'Image rejected: %' AND description NOT LIKE '%shell.jpg%'", [$adminId])->fetchColumn() === $rejectedBefore + 4);
     check('rejected files left nothing on disk', count($storedFiles()) === $start + 2 * count($rows($v1)));
     $tooMany = $up($v1, array_map(static fn ($i) => upfile($jpeg, "f$i.jpg"), range(1, 11)));
     check('more than 10 files in one request is refused as a whole, nothing processed', $tooMany['status'] === 'invalid' && count($rows($v1)) === $beforeMixed + 2 && str_contains((string) $tooMany['results'][0]['message'], '10'));
@@ -428,7 +429,7 @@ try {
     $prevLog = ini_set('error_log', $work . '/php_errors4.log');
     putenv('APP_ENV=production'); $_ENV['APP_ENV'] = 'production';
     $err = (new VehicleImageController($failingSvc))->manage(['id' => 1, 'name' => 'Admin', 'role' => 'administrator'], '1');
-    putenv('APP_ENV=development'); $_ENV['APP_ENV'] = 'development';
+    putenv('APP_ENV=development'); $_ENV['APP_ENV'] = 'development'; putenv('APP_DEBUG=1');   // the developer detail needs APP_DEBUG=1
     $errDev = (new VehicleImageController($failingSvc))->manage(['id' => 1, 'name' => 'Admin', 'role' => 'administrator'], '1');
     ini_set('error_log', (string) $prevLog);
     check('production: a failing service gives a 500 with a generic message and NO detail; the technical text is only in the log', $err['http'] === 500 && $err['detail'] === null && !preg_match('/SQLSTATE|secret|path|file\.php/i', json_encode($err)) && str_contains((string) @file_get_contents($work . '/php_errors4.log'), 'SQLSTATE'));

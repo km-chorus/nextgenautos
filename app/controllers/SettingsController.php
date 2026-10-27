@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/services/SettingsService.php';
+require_once dirname(__DIR__) . '/services/AccidentVehicleSettings.php';
 require_once dirname(__DIR__) . '/services/AuthorizationService.php';
 require_once dirname(__DIR__) . '/helpers/csrf.php';
 require_once dirname(__DIR__) . '/helpers/flash.php';
@@ -38,7 +39,9 @@ final class SettingsController
 
         try {
             $service = $this->service ?? SettingsService::create();
-            $view = ['values' => $service->current(), 'errors' => [], 'formMessage' => null, 'flash' => flash_take(), 'http' => 200, 'problem' => null];
+            $switch = AccidentVehicleSettings::create();
+            $view = ['values' => $service->current(), 'errors' => [], 'formMessage' => null, 'flash' => flash_take(), 'http' => 200, 'problem' => null,
+                'accidentEnabled' => $switch->isOn()];
             if ($method !== 'POST') {
                 return $view;
             }
@@ -53,6 +56,18 @@ final class SettingsController
                 return ['http' => 400, 'problem' => 'csrf', 'formMessage' => self::MESSAGE_CSRF] + $view;
             }
 
+            if (($post['form'] ?? null) === 'features') {                 // spec 23: the Accident Vehicles page switch
+                $on = $post['accident_vehicles_enabled'] ?? null;
+                if ($on !== '1' && $on !== '0') {
+                    return ['formMessage' => 'Choose On or Off for the Accident Vehicles page.'] + $view;
+                }
+                $done = $switch->set($on === '1', (int) $admin['id'], $ip, $userAgent);
+                flash_set($done === 'ok' ? 'success' : 'info', $done === 'ok'
+                    ? ($on === '1' ? 'The Accident Vehicles page is now on the website.' : 'The Accident Vehicles page is now hidden from the website.')
+                    : 'No changes were made.');
+
+                return ['redirect' => 'settings.php'];
+            }
             $result = $service->save($post, (int) $admin['id'], $ip, $userAgent);
             if ($result['status'] === SettingsService::RESULT_INVALID) {
                 return ['values' => $result['values'], 'errors' => $result['errors'], 'formMessage' => self::MESSAGE_INVALID_FORM] + $view;

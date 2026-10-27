@@ -121,6 +121,7 @@ final class AuditLogRepository
             'admin'      => 'admin_user_id = ?',
             'ip'         => 'ip_address = ?',
             'identifier' => "entity_type = 'login_identifier' AND entity_id = ?",
+            'customer'   => "entity_type = 'customer' AND entity_id = ?",   // a customer account (password changes, 2026-10-22)
             default      => throw new InvalidArgumentException('Unknown throttle subject.'),
         };
         $marks = implode(',', array_fill(0, count($eventTypes), '?'));

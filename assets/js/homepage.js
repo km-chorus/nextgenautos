@@ -1,34 +1,24 @@
-/* Homepage hero carousel (spec 10A). Vanilla JS, no dependencies.
-   Crossfade between 2 to 4 slides, rotating every 6 s. Pauses on hover, while focus is in the
-   controls, while the tab is hidden, and when the visitor presses Pause. With reduced motion it
-   never rotates by itself (the slides can still be changed with the controls).
-   Without JavaScript the first slide simply stays visible. */
+/* Homepage hero background (spec 10A; controls removed at the owner's request, 2026-10-22). Vanilla JS, no dependencies.
+   Crossfade between 2 to 4 photos, every 6 s. There are no buttons: the photos are a background, the headline and search
+   never change. Rotation pauses while the pointer is over the hero, while focus is inside it (for example in the search
+   form), and while the tab is hidden. With reduced motion it never rotates. Without JavaScript the first photo stays. */
 (function () {
     'use strict';
 
     var root = document.querySelector('[data-hero]');
     if (!root) { return; }
     var slides = Array.prototype.slice.call(root.querySelectorAll('[data-hero-slide]'));
-    // Two control groups: the side arrows and the pause button with the dots. Both stay hidden without JavaScript.
-    var groups = Array.prototype.slice.call(root.querySelectorAll('[data-hero-controls], [data-hero-controls-extra]'));
-    if (slides.length < 2 || groups.length < 2) { return; }
-    function showControls(visible) { groups.forEach(function (g) { g.hidden = !visible; }); }
+    if (slides.length < 2) { return; }
 
-    var dots = Array.prototype.slice.call(root.querySelectorAll('[data-hero-dot]'));
-    var toggle = root.querySelector('[data-hero-toggle]');
-    var iconPause = root.querySelector('[data-hero-icon-pause]');
-    var iconPlay = root.querySelector('[data-hero-icon-play]');
-    var region = root.querySelector('[data-hero-slides]');
     var INTERVAL = 6000;
     var reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
 
     var current = 0;
     var timer = null;
-    var userPaused = reduce.matches;   // reduced motion: no automatic rotation
     var hovering = false;
     var focusInside = false;
 
-    // Images after the first one are loaded progressively (next slide first), not all at once.
+    // Photos after the first one are loaded progressively (next photo first), not all at once.
     var loaded = [true];
     function load(index) {
         if (loaded[index]) { return; }
@@ -51,14 +41,13 @@
         }());
     }
 
-    // An image that fails to load is dropped from the rotation (the dark hero panel, headline and
-    // buttons stay); with fewer than two working slides the carousel stops and its controls hide.
+    // A photo that fails to load is dropped from the rotation; with fewer than two working photos the rotation stops.
     var failed = [];
     function usable() { return slides.length - failed.filter(Boolean).length; }
-    function step(from, dir) {
+    function step(from) {
         var i = from;
         for (var n = 0; n < slides.length; n++) {
-            i = (i + dir + slides.length) % slides.length;
+            i = (i + 1) % slides.length;
             if (!failed[i]) { return i; }
         }
         return from;
@@ -69,9 +58,8 @@
         var i = slides.indexOf(img.closest('[data-hero-slide]'));
         if (i < 0 || failed[i]) { return; }
         failed[i] = true;
-        if (dots[i]) { dots[i].hidden = true; }
-        if (usable() < 2) { stop(); showControls(false); }
-        if (i === current) { show(step(i, 1)); }
+        if (usable() < 2) { stop(); }
+        if (i === current) { show(step(i)); }
     }, true);
 
     function show(index) {
@@ -80,51 +68,28 @@
             var active = i === current;
             slides[i].classList.toggle('is-active', active);
             if (active) { slides[i].removeAttribute('aria-hidden'); } else { slides[i].setAttribute('aria-hidden', 'true'); }
-            if (dots[i]) {
-                if (active) { dots[i].setAttribute('aria-current', 'true'); } else { dots[i].removeAttribute('aria-current'); }
-            }
         }
         load(current);
         load((current + 1) % slides.length);
     }
 
     function stop() { if (timer !== null) { clearTimeout(timer); timer = null; } }
-    function running() { return usable() > 1 && !userPaused && !hovering && !focusInside && !document.hidden; }
+    function running() { return usable() > 1 && !reduce.matches && !hovering && !focusInside && !document.hidden; }
     function schedule() {
         stop();
         if (!running()) { return; }
-        timer = setTimeout(function () { show(step(current, 1)); schedule(); }, INTERVAL);
+        timer = setTimeout(function () { show(step(current)); schedule(); }, INTERVAL);
     }
 
-    function syncToggle() {
-        toggle.setAttribute('aria-label', userPaused ? 'Start slide rotation' : 'Pause slide rotation');
-        iconPause.hidden = userPaused;
-        iconPlay.hidden = !userPaused;
-        // Announce slide changes politely only when the visitor is in control (not while auto-rotating).
-        region.setAttribute('aria-live', userPaused ? 'polite' : 'off');
-    }
-
-    showControls(true);
     show(0);
-    syncToggle();
-
-    root.querySelector('[data-hero-prev]').addEventListener('click', function () { show(step(current, -1)); schedule(); });
-    root.querySelector('[data-hero-next]').addEventListener('click', function () { show(step(current, 1)); schedule(); });
-    toggle.addEventListener('click', function () { userPaused = !userPaused; syncToggle(); schedule(); });
-    dots.forEach(function (dot, i) { dot.addEventListener('click', function () { if (!failed[i]) { show(i); schedule(); } }); });
-
     root.addEventListener('mouseenter', function () { hovering = true; stop(); });
     root.addEventListener('mouseleave', function () { hovering = false; schedule(); });
-    groups.forEach(function (group) {
-        group.addEventListener('focusin', function () { focusInside = true; stop(); });
-        group.addEventListener('focusout', function (event) {
-            var inside = groups.some(function (g) { return g.contains(event.relatedTarget); });
-            if (!inside) { focusInside = false; schedule(); }
-        });
+    root.addEventListener('focusin', function () { focusInside = true; stop(); });
+    root.addEventListener('focusout', function (event) {
+        if (!root.contains(event.relatedTarget)) { focusInside = false; schedule(); }
     });
     document.addEventListener('visibilitychange', schedule);
-    var onReduce = function () { userPaused = reduce.matches; syncToggle(); schedule(); };
-    if (reduce.addEventListener) { reduce.addEventListener('change', onReduce); } else if (reduce.addListener) { reduce.addListener(onReduce); }
+    if (reduce.addEventListener) { reduce.addEventListener('change', schedule); } else if (reduce.addListener) { reduce.addListener(schedule); }
 
     if (document.readyState === 'complete') { loadAll(); } else { window.addEventListener('load', loadAll); }
     schedule();

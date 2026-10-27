@@ -44,7 +44,7 @@ class PasswordResetService
     /** True when an email could really be delivered from this environment (provider + public URL configured). */
     public static function isAvailable(): bool
     {
-        return EmailService::isConfigured() && AppConfig::appUrl() !== null;
+        return EmailService::isConfigured();
     }
 
     /**
@@ -85,7 +85,7 @@ class PasswordResetService
             $this->tokens->create((int) $user['id'], hash('sha256', $token), $expires);
         });
 
-        $link = AppConfig::appUrl() . '/admin/reset-password.php?token=' . $token;
+        $link = AppConfig::linkUrl() . '/admin/reset-password.php?token=' . $token;
         $sent = $this->email->sendPasswordReset($email, (string) $user['name'], $link, AppConfig::passwordResetMinutes());
 
         if (!$sent) {

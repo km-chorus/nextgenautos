@@ -17,6 +17,8 @@ require_once __DIR__ . '/AssistantData.php';
 final class AssistantService
 {
     public const MAX_LENGTH = 200;
+    /** Same name as the public site (PUBLIC_SITE_NAME in public_ui.php), used in the greeting. */
+    public const SITE_NAME = 'Next Gen Autos and Parts';
     public const LIST_LIMIT = 5;
 
     /** Quick replies: id => label (no emojis, per the design rules). */
@@ -46,7 +48,7 @@ final class AssistantService
         'location'   => ['location', 'located', 'address', 'where are you', 'office', 'showroom', 'visit', 'directions', 'map'],
         'contact'    => ['contact', 'phone', 'call', 'number', 'email', 'e-mail', 'whatsapp', 'reach', 'talk', 'speak', 'message'],
         'account'    => ['account', 'sign in', 'signin', 'log in', 'login', 'register', 'sign up', 'signup', 'password'],
-        'about'      => ['about', 'who are you', 'company', 'amponsah', 'trust', 'legit', 'genuine business'],
+        'about'      => ['about', 'who are you', 'company', 'amponsah', 'next gen', 'nextgen', 'trust', 'legit', 'genuine business'],
         'brands'     => ['brands', 'makes', 'which brands', 'which makes'],
         'vehicles'   => ['vehicle', 'vehicles', 'car', 'cars', 'available', 'stock', 'inventory', 'suv', 'sedan', 'truck', 'pickup', 'jeep', 'van', 'listing', 'listings'],
         'start'      => ['hi', 'hello', 'hey', 'good morning', 'good afternoon', 'good evening', 'akwaaba', 'start', 'menu', 'help'],
@@ -145,7 +147,7 @@ final class AssistantService
     private function answer(string $intent, ?array $words): array
     {
         return match ($intent) {
-            'start'      => $this->out([self::msg("Hi! I'm the Amponsah Autos assistant. I answer from the information on this website. What would you like to know?")],
+            'start'      => $this->out([self::msg("I'm the " . self::SITE_NAME . ' assistant, an automated helper that answers from the information on this website. Choose a topic or type your question.')],
                 array_keys(self::CHIPS)),
             'vehicles'   => $this->vehicleList(false),
             'prices'     => $this->vehicleList(true),
@@ -166,7 +168,7 @@ final class AssistantService
                 links: $this->whatsappLink('Ask our team'))], ['reserve', 'contact']),
             'account'    => $this->out([self::msg('With a customer account you can sign in and open the Track Vehicle page. Creating one only needs your name, email and a password.',
                 links: [self::link('Create an account', '/register/'), self::link('Sign in', '/login/')])], ['tracking', 'contact']),
-            'about'      => $this->out([self::msg('Amponsah Autos operates between Canada and Ghana: we source quality vehicles in Canada, ship them to Ghana, and also deal in car parts for popular makes such as Toyota, Honda and Hyundai.',
+            'about'      => $this->out([self::msg('Next Gen Autos and Parts operates between Canada and Ghana: we source quality vehicles in Canada, ship them to Ghana, and also deal in car parts for popular makes such as Toyota, Honda and Hyundai.',
                 links: [self::link('Browse vehicles', '/vehicles/')])], ['vehicles', 'process', 'contact']),
             'brands'     => $this->brands(),
             'test_drive' => $this->contact('Test drives cannot be booked on the website. Each vehicle page has photos and full details, and our team can answer your questions:'),
@@ -255,7 +257,7 @@ final class AssistantService
         $ignore = ['part', 'parts', 'spare', 'spares', 'accessory', 'accessories', 'for', 'the', 'and', 'do', 'you', 'have', 'sell', 'any', 'need', 'my', 'car', 'a', 'an', 'i', 'is', 'there'];
         $wanted = array_values(array_diff($words, $ignore));
         $matched = $wanted === [] ? [] : array_values(array_filter($cards, static function (array $p) use ($wanted): bool {
-            $vocab = self::words($p['name'] . ' ' . $p['type'] . ' ' . implode(' ', $p['fits']) . ' ' . implode(' ', $p['makes']) . ' ' . ($p['part_number'] ?? ''));
+            $vocab = self::words($p['name'] . ' ' . $p['type'] . ' ' . implode(' ', $p['fits']) . ' ' . implode(' ', $p['makes']) . ' ' . implode(' ', $p['numbers'] ?? [$p['part_number'] ?? '']));
             foreach ($wanted as $w) {
                 if (in_array($w, $vocab, true) || in_array(rtrim($w, 's'), $vocab, true)) {
                     return true;
@@ -270,14 +272,15 @@ final class AssistantService
         $list = $matched !== [] ? $matched : $cards;
         $items = array_map(static fn (array $p): array => [
             'title' => $p['name'],
-            'meta'  => $p['type'] . ' · ' . $p['condition'] . ' · ' . ($p['in_stock'] ? 'In stock' : 'Out of stock')
-                . ' · Fits: ' . ($p['fits'] === [] ? 'ask us' : implode(', ', $p['fits']) . ($p['fits_more'] > 0 ? ' and ' . $p['fits_more'] . ' more' : '')),
-            'price' => $p['price'],
+            // Spec 27: condition and stock only when the administrator set them; no price = "Price on request".
+            'meta'  => implode(' · ', array_filter([$p['type'], $p['condition'], $p['in_stock'] === null ? null : ($p['in_stock'] ? 'In stock' : 'Out of stock'),
+                'Fits: ' . ($p['fits'] === [] ? 'ask us' : implode(', ', $p['fits']) . ($p['fits_more'] > 0 ? ' and ' . $p['fits_more'] . ' more' : ''))])),
+            'price' => $p['price'] ?? 'Price on request',
             'href'  => '/contact/?' . http_build_query(['part' => $p['slug']]) . '#message',
         ], array_slice($list, 0, self::LIST_LIMIT));
 
         return $this->out([self::msg($matched !== [] ? 'Parts that match:' : 'Our latest parts and accessories:', items: $items,
-            lines: ['Choose a part to ask us about it.'], links: [self::link('See parts on the homepage', '/#parts')])], ['contact', 'vehicles']);
+            lines: ['Choose a part to ask us about it.'], links: [self::link('See all parts', '/parts/')])], ['contact', 'vehicles']);
     }
 
     private function hours(): array

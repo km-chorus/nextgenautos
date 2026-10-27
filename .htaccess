@@ -1,8 +1,53 @@
 # Clean URLs for the public website (spec 09): anything that is not an existing file or folder
 # (so /admin/, /assets/ and /uploads/ are untouched) goes to the front controller.
 DirectoryIndex index.php
+Options -Indexes
+
+# Security audit 2026-10-27 (SEC-01): no PHP version in responses, also for files PHP does not answer itself.
+<IfModule mod_headers.c>
+    Header always unset X-Powered-By
+    Header unset X-Powered-By
+</IfModule>
+
+# Private parts of the project are never served (deployment hardening, 2026-10-26). They answer 404 as if they did not
+# exist: application code, templates, database files and scripts, project documents, Composer files and vendor code,
+# private server data (password reset cache), and every hidden file (.env, .git, .htaccess ...). Only the site itself,
+# /admin/ pages, /assets/ and /uploads/ are public. Each of these folders also carries its own "Require all denied" file.
+<IfModule mod_alias.c>
+    RedirectMatch 404 ^/(app|database|Context|includes|public|vendor|storage)(/|$)
+    # Hidden files and folders, except /.well-known/ (used by cPanel AutoSSL / Let's Encrypt to issue the HTTPS certificate)
+    RedirectMatch 404 (^|/)\.(?!well-known/)
+    RedirectMatch 404 ^/composer\.(json|lock)$
+    RedirectMatch 404 \.(md|sql|log|lock|example)$
+    # cPanel PHP writes errors to a file called "error_log" (no extension) in the folder of the script: never served
+    RedirectMatch 404 (^|/)error_log$
+</IfModule>
+# The same files, again by name (works even without mod_alias)
+<FilesMatch "(^\.|\.(md|sql|log|lock|example)$|^composer\.json$|^error_log$)">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
 <IfModule mod_rewrite.c>
     RewriteEngine On
+
+    # One official address (SEO 2026-10-27): https://nextgenautosandparts.com, without "www". Permanent redirects,
+    # path and query kept. Only for this domain, so local and test copies are unaffected; /.well-known/ is left alone
+    # so cPanel AutoSSL / Let's Encrypt can still renew the certificate.
+    RewriteCond %{REQUEST_URI} !^/\.well-known/
+    RewriteCond %{HTTP_HOST} ^www\.nextgenautosandparts\.com$ [NC]
+    RewriteRule ^ https://nextgenautosandparts.com%{REQUEST_URI} [R=301,L,NE]
+    RewriteCond %{REQUEST_URI} !^/\.well-known/
+    RewriteCond %{HTTP_HOST} ^nextgenautosandparts\.com$ [NC]
+    RewriteCond %{HTTPS} !=on
+    RewriteCond %{HTTP:X-Forwarded-Proto} !=https
+    RewriteRule ^ https://nextgenautosandparts.com%{REQUEST_URI} [R=301,L,NE]
+
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteRule ^ index.php [L]

@@ -33,7 +33,7 @@
 .vd-stage--empty .icon { width: 40px; height: 40px; stroke-width: 1.25; }
 .vd-stage__count {
     position: absolute; left: var(--s3); bottom: var(--s3); z-index: 2; display: inline-flex; align-items: center; gap: 6px; margin: 0; padding: 5px 12px;
-    color: #fff; font-size: 0.8125rem; font-weight: 600; background: rgba(43, 47, 53, 0.78); border-radius: 999px;
+    color: #fff; font-size: 0.8125rem; font-weight: 500; background: rgba(43, 47, 53, 0.78); border-radius: 999px;
 }
 .vd-stage__count .icon { width: 15px; height: 15px; }
 .vd-stage__nav { position: absolute; top: calc(50% - 22px); z-index: 2; display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0; color: var(--ink); background: rgba(255, 255, 255, 0.92); border: 1px solid var(--line); border-radius: 50%; cursor: pointer; }
@@ -45,7 +45,7 @@
 
 .vd-thumbs { margin-top: var(--s3); }
 .vd-thumbs[hidden] { display: none; }
-.vd-thumbs__title { margin: 0 0 var(--s2); font-size: 0.875rem; font-weight: 600; }
+.vd-thumbs__title { margin: 0 0 var(--s2); font-size: 0.875rem; font-weight: 500; }
 .vd-thumbs__list { display: flex; gap: var(--s2); margin: 0; padding: 2px; list-style: none; overflow-x: auto; scrollbar-width: none; }
 .vd-thumbs__list::-webkit-scrollbar { display: none; }
 .vd-thumbs__item { display: block; flex: none; width: 76px; padding: 2px; border: 2px solid transparent; border-radius: var(--radius); }
@@ -54,16 +54,16 @@
 
 /* Summary */
 .vd-summary { min-width: 0; }
-.vd-summary__eyebrow { margin: 0 0 var(--s1); color: var(--accent); font-size: 0.8125rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
-.vd-summary__title { margin: 0; font-size: clamp(2rem, 1.4rem + 2.4vw, 3rem); font-weight: 800; line-height: 1.08; letter-spacing: -0.01em; overflow-wrap: anywhere; }
+.vd-summary__eyebrow { margin: 0 0 var(--s1); color: var(--accent); font-size: 0.8125rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+.vd-summary__title { margin: 0; font-size: clamp(2rem, 1.4rem + 2.4vw, 3rem); font-weight: 600; line-height: 1.08; letter-spacing: -0.01em; overflow-wrap: anywhere; }
 .vd-summary__trim { margin: var(--s2) 0 0; color: var(--muted); font-size: 1.25rem; }
 .vd-summary__price-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2) var(--s4); margin-top: var(--s4); }
-.vd-summary__price { margin: 0; font-size: 1.625rem; font-weight: 700; line-height: 1.2; }
-.vd-status { display: inline-flex; align-items: center; gap: 6px; margin: 0; padding: 3px 10px 3px 9px; font-size: 0.8125rem; font-weight: 600; color: var(--ink); background: var(--tint); border: 1px solid var(--line); border-radius: var(--radius); }
+.vd-summary__price { margin: 0; font-size: 1.625rem; font-weight: 600; line-height: 1.2; }
+.vd-status { display: inline-flex; align-items: center; gap: 6px; margin: 0; padding: 3px 10px 3px 9px; font-size: 0.8125rem; font-weight: 500; color: var(--ink); background: var(--tint); border: 1px solid var(--line); border-radius: var(--radius); }
 .vd-status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #2f6b3f; }
 .vd-status--reserved::before { background: var(--accent); }
 .vd-summary__duty { margin: var(--s1) 0 0; color: var(--muted); font-size: 0.875rem; }
-.vd-summary__cta { width: 100%; min-height: 52px; margin-top: var(--s4); font-size: 1rem; font-weight: 700; }
+.vd-summary__cta { width: 100%; min-height: 52px; margin-top: var(--s4); font-size: 1rem; font-weight: 600; }
 .vd-summary__text { margin: var(--s5) 0 0; color: var(--muted); font-size: 1.0625rem; line-height: 1.7; overflow-wrap: anywhere; }
 
 /* Detail tiles: icon, small label, value (2 x 2 from tablet width) */
@@ -72,7 +72,7 @@
 .vd-tile__icon { grid-row: span 2; display: inline-flex; color: var(--accent); }
 .vd-tile__icon .icon { width: 22px; height: 22px; }
 .vd-tile dt { margin: 0; color: var(--muted); font-size: 0.8125rem; }
-.vd-tile dd { margin: 0; font-weight: 700; overflow-wrap: anywhere; }
+.vd-tile dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
 
 /* Actions row */
 .vd-actions { display: flex; flex-wrap: wrap; gap: var(--s2); margin-top: var(--s5); }
@@ -81,21 +81,31 @@
 
 /* Specifications band: grey, full width, white cards */
 .vd-spec-section { padding-block: var(--s7); background: var(--tint); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-.vd-spec-section__title { margin: 0 0 var(--s5); font-size: clamp(1.5rem, 1.3rem + 0.8vw, 2rem); font-weight: 700; }
+/* Spec 23: accident damage disclosure (flag in the summary, own section above the specifications) */
+.vd-damage-flag { display: flex; align-items: flex-start; gap: var(--s2); margin: var(--s3) 0 0; padding: var(--s3); font-size: 0.9375rem; line-height: 1.45; background: var(--tint); border-left: 3px solid var(--ink); }
+.vd-damage-flag .icon { flex: 0 0 auto; width: 20px; height: 20px; margin-top: 1px; color: var(--accent); }
+.vd-damage-flag a { color: var(--ink); font-weight: 500; text-decoration: underline; text-underline-offset: 2px; }
+.vd-damage { padding-block: var(--s7); border-top: 1px solid var(--line); }
+.vd-damage__grid { display: grid; gap: var(--s5); }
+.vd-damage__text p { margin: 0 0 var(--s3); font-size: 1rem; line-height: 1.6; overflow-wrap: anywhere; }
+.vd-damage__photos { color: var(--muted); font-size: 0.9375rem; }
+.vd-damage__facts { padding: var(--s2) var(--s5); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); }
+@media (min-width: 64em) { .vd-damage__grid { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: var(--s7); align-items: start; } }
+.vd-spec-section__title { margin: 0 0 var(--s5); font-size: clamp(1.5rem, 1.3rem + 0.8vw, 2rem); font-weight: 600; }
 .vd-spec-grid { display: grid; gap: var(--s4); align-items: start; }
 .vd-spec-card { min-width: 0; padding: var(--s5); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); }
-.vd-spec-card__title { display: flex; align-items: center; gap: var(--s2); margin: 0 0 var(--s3); font-size: 1.125rem; font-weight: 600; }
+.vd-spec-card__title { display: flex; align-items: center; gap: var(--s2); margin: 0 0 var(--s3); font-size: 1.125rem; font-weight: 500; }
 .vd-spec-card__title .icon { width: 20px; height: 20px; color: var(--accent); }
 .vd-spec-card__rows { margin: 0; }
 .vd-spec-card__row { display: flex; justify-content: space-between; gap: var(--s3); padding: var(--s2) 0; font-size: 0.9375rem; }
 .vd-spec-card__row + .vd-spec-card__row { border-top: 1px solid var(--line); }
 .vd-spec-card__row dt { color: var(--muted); }
-.vd-spec-card__row dd { margin: 0; font-weight: 600; text-align: right; overflow-wrap: anywhere; }
+.vd-spec-card__row dd { margin: 0; font-weight: 500; text-align: right; overflow-wrap: anywhere; }
 .vd-spec-card__features { display: grid; gap: var(--s2); font-size: 0.9375rem; }
 .vd-spec-card__features li { overflow-wrap: anywhere; }
-.vd-spec-card__features li::before { content: "\2713"; margin-right: var(--s2); color: #2f6b3f; font-weight: 700; }
+.vd-spec-card__features li::before { content: "\2713"; margin-right: var(--s2); color: #2f6b3f; font-weight: 600; }
 .vd-spec-card__text { margin: 0 0 var(--s3); color: var(--muted); font-size: 0.9375rem; overflow-wrap: anywhere; }
-.vd-spec-card__link { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; margin-top: var(--s2); color: var(--ink); font-size: 0.875rem; font-weight: 600; }
+.vd-spec-card__link { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; margin-top: var(--s2); color: var(--ink); font-size: 0.875rem; font-weight: 500; }
 .vd-spec-card__link .icon { width: 17px; height: 17px; color: var(--accent); }
 .vd-spec-card__link:hover { color: var(--accent); }
 
@@ -121,3 +131,13 @@
     .vd-form__form .btn { justify-self: stretch; }
     .vd-tile { padding: var(--s3); column-gap: var(--s2); }
 }
+
+/* Parts for this vehicle (spec 28): compatible, in-stock parts as white cards (parts.css) on the same grey band as the
+   specifications, which it follows. Two cards per row on phones, four on desktop. */
+.vd-parts { padding-block: 0 var(--s7); background: var(--tint); border-bottom: 1px solid var(--line); }
+.vd-spec-section:has(+ .vd-parts) { border-bottom: 0; }
+.vd-parts__head { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: var(--s2) var(--s4); margin: 0 0 var(--s4); }
+.vd-parts__head .vd-spec-section__title { margin-bottom: var(--s1); }
+.vd-parts__intro { margin: 0; color: var(--muted); font-size: 0.9375rem; }
+.vd-parts__all { display: inline-flex; align-items: center; gap: var(--s1); min-height: 44px; color: var(--ink); font-weight: 500; }
+.vd-parts__all .icon { width: 16px; height: 16px; }

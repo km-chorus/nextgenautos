@@ -30,7 +30,7 @@ final class CustomerAuthService
 
     public const WINDOW_MINUTES = 15;
     public const MAX_LOGIN_FAILURES_PER_IP = 10;
-    public const MAX_LOGIN_FAILURES_PER_ACCOUNT = 10;
+    public const MAX_LOGIN_FAILURES_PER_ACCOUNT = 3;   // owner request 2026-10-22: "try again later" after 3 wrong passwords
     public const REGISTER_WINDOW_MINUTES = 60;
     public const MAX_REGISTRATIONS_PER_IP = 5;
 
@@ -60,8 +60,7 @@ final class CustomerAuthService
      */
     public function googleStart(string $ip, string $userAgent): ?string
     {
-        if (!AppConfig::googleConfigured()
-            || $this->audit->countRecent('ip', $ip, ['CUSTOMER_GOOGLE_START'], self::WINDOW_MINUTES) >= 20) {
+        if (!AppConfig::googleConfigured() || $this->googleThrottled($ip)) {
             return null;
         }
         $this->audit->record('CUSTOMER_GOOGLE_START', null, null, null, 'Google sign-in started', $ip, $userAgent);
@@ -104,6 +103,7 @@ final class CustomerAuthService
                 $this->customers->linkGoogle((int) $customer['id'], $identity['sub']);
             } else {
                 $id = $this->customers->createFromGoogle($identity['name'], $identity['email'], $identity['sub']);
+                $created = $id !== null;
                 $customer = $id === null ? null : $this->customers->findById($id);
                 if ($customer !== null) {
                     $this->audit->record('CUSTOMER_REGISTERED', null, 'customer', $id, 'Customer account created with Google', $ip, $userAgent);
@@ -119,7 +119,13 @@ final class CustomerAuthService
 
         $this->customers->recordLogin((int) $customer['id']);
         $this->audit->record('CUSTOMER_LOGIN_SUCCESS', null, 'customer', (int) $customer['id'], 'Customer signed in with Google', $ip, $userAgent);
-        $this->sessions->establish((int) $customer['id']);
+        $this->sessions->establish((int) $customer['id'], !empty($created) ? 'new' : 'back');
+        try {
+            require_once __DIR__ . '/CustomerVerificationService.php';
+            CustomerVerificationService::create()->linkWaitingShipments((int) $customer['id']);   // Google verified this email
+        } catch (Throwable $e) {
+            error_log('Customer shipments could not be linked after Google sign-in: ' . get_class($e));
+        }
 
         return true;
     }
@@ -206,7 +212,7 @@ final class CustomerAuthService
         }
 
         $this->audit->record('CUSTOMER_REGISTERED', null, 'customer', $id, 'Customer account created', $ip, $userAgent);
-        $this->sessions->establish($id);
+        $this->sessions->establish($id, 'new');
 
         return ['status' => self::REGISTER_OK];
     }
@@ -214,7 +220,7 @@ final class CustomerAuthService
     /**
      * The signed-in customer, or null. A session whose account no longer exists or was disabled is destroyed.
      *
-     * @return array{id:int,name:string,email:string}|null
+     * @return array{id:int,name:string,email:string,verified:bool}|null
      * @throws Throwable on infrastructure failure
      */
     public function currentCustomer(): ?array
@@ -224,19 +230,33 @@ final class CustomerAuthService
             return null;
         }
         $customer = $this->customers->findById($id);
-        if ($customer === null || $customer['status'] !== 'active') {
+        // A session that signed in before the password was changed or reset ends here (2026-10-22): a reset locks out
+        // whoever else was signed in to the account.
+        $changed = ($customer['password_changed_at'] ?? null) !== null
+            ? (DateTimeImmutable::createFromFormat('Y-m-d H:i:s', (string) $customer['password_changed_at'], new DateTimeZone('UTC')) ?: null)?->getTimestamp() : null;
+        $signedIn = $this->sessions->authenticatedAt();
+        if ($customer === null || $customer['status'] !== 'active' || ($changed !== null && $signedIn !== null && $signedIn + 2 < $changed)) {
             $this->sessions->destroy();
 
             return null;
         }
 
-        return ['id' => (int) $customer['id'], 'name' => (string) $customer['name'], 'email' => (string) $customer['email']];
+        return ['id' => (int) $customer['id'], 'name' => (string) $customer['name'], 'email' => (string) $customer['email'],
+            'verified' => ($customer['email_verified_at'] ?? null) !== null];
     }
 
     public function logout(int $customerId, string $ip, string $userAgent): void
     {
         $this->audit->record('CUSTOMER_LOGOUT', null, 'customer', $customerId, 'Customer signed out', $ip, $userAgent);
         $this->sessions->destroy();
+    }
+
+    public const MAX_GOOGLE_STARTS_PER_IP = 10;
+
+    /** Too many Google sign-ins started from this IP in 15 minutes (2026-10-22: every sign-in route is rate limited). */
+    public function googleThrottled(string $ip): bool
+    {
+        return $this->audit->countRecent('ip', $ip, ['CUSTOMER_GOOGLE_START'], self::WINDOW_MINUTES) >= self::MAX_GOOGLE_STARTS_PER_IP;
     }
 
     private function loginThrottled(string $ip, int $fingerprint): bool

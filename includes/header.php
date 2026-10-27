@@ -23,7 +23,7 @@ $pageDescription = $page['description'] ?? null;
     <?= public_meta($page) . "\n" ?>
     <meta name="theme-color" content="#2B2F35">
     <link rel="icon" href="data:,">
-    <link rel="preload" href="/assets/fonts/nunito-latin-wght.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="/assets/fonts/manrope-latin-wght.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="<?= public_asset('css/public.css') ?>">
 <?php foreach ($page['css'] ?? [] as $assetFile): if (preg_match('/^[a-z0-9-]+\.css$/', (string) $assetFile) === 1): ?>
     <link rel="stylesheet" href="<?= public_asset('css/' . $assetFile) ?>">
@@ -34,6 +34,7 @@ $pageDescription = $page['description'] ?? null;
     <noscript><link rel="stylesheet" href="<?= public_asset('css/public-nojs.css') ?>"></noscript>
     <script src="<?= public_asset('js/public.js') ?>" defer></script>
     <script src="<?= public_asset('js/assistant.js') ?>" defer></script>
+    <script src="<?= public_asset('js/favourites.js') ?>" defer></script>
 <?php foreach ($page['js'] ?? [] as $assetFile): if (preg_match('/^[a-z0-9-]+\.js$/', (string) $assetFile) === 1): ?>
     <script src="<?= public_asset('js/' . $assetFile) ?>" defer></script>
 <?php endif; endforeach; ?>

@@ -11,10 +11,10 @@
 
 .vehicle-card__body { display: flex; flex-direction: column; flex: 1; padding-top: var(--s4); }
 .vehicle-card__meta { margin: 0 0 var(--s1); color: var(--muted); font-size: 0.8125rem; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; }
-.vehicle-card__title { margin: 0; font-size: 1.125rem; font-weight: 600; line-height: 1.25; letter-spacing: 0; overflow-wrap: anywhere; }
+.vehicle-card__title { margin: 0; font-size: 1.125rem; font-weight: 500; line-height: 1.25; letter-spacing: 0; overflow-wrap: anywhere; }
 .vehicle-card__title a { color: var(--ink); text-decoration: none; }
 .vehicle-card__title a:hover { color: var(--muted); }
-.vehicle-card__price { margin: var(--s3) 0 0; padding-bottom: var(--s4); font-size: 1.25rem; font-weight: 700; line-height: 1.2; letter-spacing: 0; }
+.vehicle-card__price { margin: var(--s3) 0 0; padding-bottom: var(--s4); font-size: 1.25rem; font-weight: 600; line-height: 1.2; letter-spacing: 0; }
 .vehicle-card__foot { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); margin-top: auto; padding-top: var(--s2); border-top: 1px solid var(--line); }
 .vehicle-card__status { margin: 0; color: var(--muted); font-size: 0.875rem; }
 .vehicle-card__status--reserved { color: var(--accent); }
@@ -55,13 +55,13 @@
 }
 
 /* Vehicles page (spec 11): filter panel on the left, three-column catalogue grid. Flat, dense, functional. */
-.inventory { padding-block: var(--s6) var(--s8); }
+.inventory { padding-block: var(--s6) var(--s8); background: var(--card-area); box-shadow: 0 0 0 100vmax var(--card-area); clip-path: inset(0 -100vmax); }
 .inventory__layout { display: block; }
 
 /* Filter panel. Without JavaScript it is simply shown above the results; with it (inventory.js sets .is-js) it is a drawer below 64em. */
-.inv-filters { margin-bottom: var(--s5); padding: var(--s4); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); }
+.inv-filters { margin-bottom: var(--s5); padding: var(--s4); background: #fff; border: 0; border-radius: var(--radius-lg); box-shadow: var(--card-shadow); }
 .inv-filters__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--s4); }
-.inv-filters__title { margin: 0; font-size: 0.8125rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+.inv-filters__title { margin: 0; font-size: 0.8125rem; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; }
 .inv-filters__close { display: none; align-items: center; justify-content: center; width: 44px; height: 44px; margin: -8px -10px -8px 0; padding: 0; background: none; border: 0; color: var(--ink); cursor: pointer; }
 .inv-filters__close .icon { width: 22px; height: 22px; }
 .inv-field { min-width: 0; margin: 0 0 var(--s4); padding: 0; border: 0; }
@@ -89,7 +89,7 @@
 /* Result bar: count, Filters (small screens, JavaScript only) and Sort */
 .inv-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3); margin-bottom: var(--s4); padding-bottom: var(--s3); border-bottom: 1px solid var(--line); }
 .inv-toolbar__count { margin: 0 auto 0 0; color: var(--muted); font-size: 0.9375rem; }
-.inv-toolbar__count strong { color: var(--ink); font-weight: 600; }
+.inv-toolbar__count strong { color: var(--ink); font-weight: 500; }
 .inv-toolbar__filters { display: inline-flex; align-items: center; min-height: 44px; padding: 0 var(--s4); font: inherit; font-size: 0.9375rem; font-weight: 500; color: var(--ink); background: var(--surface); border: 1px solid var(--ink); border-radius: var(--radius); cursor: pointer; }
 .inv-toolbar__filters[hidden] { display: none; }
 .inv-toolbar__sort { display: flex; align-items: center; gap: var(--s2); }
@@ -124,13 +124,14 @@ body.inv-open { overflow: hidden; }
 
 /* Catalogue grid: two columns on every phone and tablet, three beside the filter panel. The card is one tappable surface (the title link covers it). */
 .inventory .vehicle-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s3); }
-:is(.inventory, .latest) .vehicle-card { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; transition: border-color 0.2s ease; }
-:is(.inventory, .latest) .vehicle-card:hover { border-color: var(--line-strong); }
+/* Solid white card without a border line, on the grey card area (owner request 2026-10-22) */
+:is(.inventory, .latest) .vehicle-card { position: relative; background: #fff; border: 0; border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--card-shadow); transition: box-shadow 0.2s ease; }
+:is(.inventory, .latest) .vehicle-card:hover { box-shadow: 0 2px 4px rgba(43, 47, 53, 0.06), 0 6px 18px rgba(43, 47, 53, 0.08); }
 :is(.inventory, .latest) .vehicle-card:focus-within { outline: 3px solid var(--focus); outline-offset: 2px; }
 :is(.inventory, .latest) .vehicle-card__media { border-radius: 0; }
 :is(.inventory, .latest) .vehicle-card__body { padding: var(--s2) 10px var(--s3); }
-:is(.inventory, .latest) .vehicle-card__meta { margin-bottom: 2px; color: var(--accent); font-size: 0.6875rem; font-weight: 600; }
-:is(.inventory, .latest) .vehicle-card__title { font-size: 0.8125rem; font-weight: 600; line-height: 1.25; }
+:is(.inventory, .latest) .vehicle-card__meta { margin-bottom: 2px; color: var(--accent); font-size: 0.6875rem; font-weight: 500; }
+:is(.inventory, .latest) .vehicle-card__title { font-size: 0.8125rem; font-weight: 500; line-height: 1.25; }
 :is(.inventory, .latest) .vehicle-card__open::after { content: ""; position: absolute; inset: 0; z-index: 1; }
 :is(.inventory, .latest) .vehicle-card__open:focus-visible { outline: none; }
 /* Labelled details: icon + label on the left, value on the right */
@@ -138,7 +139,7 @@ body.inv-open { overflow: hidden; }
 .vehicle-card__spec { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s2); padding: 3px 0; font-size: 0.6875rem; line-height: 1.35; }
 .vehicle-card__spec dt { display: inline-flex; align-items: center; gap: 5px; margin: 0; color: var(--muted); font-weight: 500; white-space: nowrap; }
 .vehicle-card__spec dt .icon { flex: none; width: 15px; height: 15px; color: var(--accent); stroke-width: 1.6; }
-.vehicle-card__spec dd { min-width: 0; margin: 0 0 0 auto; color: var(--ink); font-weight: 600; text-align: right; overflow-wrap: break-word; }
+.vehicle-card__spec dd { min-width: 0; margin: 0 0 0 auto; color: var(--ink); font-weight: 500; text-align: right; overflow-wrap: break-word; }
 .vehicle-card__media img[hidden] { display: none; }
 /* Photograph buttons (JavaScript only; hidden until it runs). They sit above the card-wide link. */
 .vehicle-card__nav { position: absolute; top: 50%; z-index: 3; display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; margin: -15px 0 0; padding: 0; color: var(--ink); background: rgba(255, 255, 255, 0.92); border: 0; border-radius: 50%; cursor: pointer; }
@@ -148,18 +149,34 @@ body.inv-open { overflow: hidden; }
 .vehicle-card__nav .icon { width: 16px; height: 16px; stroke-width: 2; }
 .vehicle-card__nav--prev { left: var(--s2); }
 .vehicle-card__nav--next { right: var(--s2); }
-.vehicle-card__count { position: absolute; right: var(--s2); bottom: var(--s2); z-index: 2; margin: 0; padding: 2px 7px; color: #fff; font-size: 0.6875rem; font-weight: 600; line-height: 1.4; background: rgba(43, 47, 53, 0.72); border-radius: 4px; pointer-events: none; }
+.vehicle-card__count { position: absolute; right: var(--s2); bottom: var(--s2); z-index: 2; margin: 0; padding: 2px 7px; color: #fff; font-size: 0.6875rem; font-weight: 500; line-height: 1.4; background: rgba(43, 47, 53, 0.72); border-radius: 4px; pointer-events: none; }
 .vehicle-card__count[hidden] { display: none; }
 /* Name and price share one row; the status is a mini label on the photograph, bottom left */
 .vehicle-card__figure { position: relative; }
+/* Accident Vehicles notice (2026-10-23): a white card with a warning symbol; compact on small screens */
+.inventory__notice { display: flex; align-items: flex-start; gap: var(--s3); margin: 0 0 var(--s5); padding: var(--s3); background: #fff; border-radius: var(--radius-lg); box-shadow: var(--card-shadow); }
+.inventory__notice-icon { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 34px; height: 34px; color: var(--accent); background: rgba(212, 42, 37, 0.09); border-radius: 10px; }
+.inventory__notice-icon .icon { width: 18px; height: 18px; stroke-width: 1.9; }
+.inventory__notice-title { margin: 0 0 2px; font-size: 0.875rem; font-weight: 600; line-height: 1.35; }
+.inventory__notice-text { margin: 0; color: var(--muted); font-size: 0.8125rem; line-height: 1.45; }
+@media (min-width: 48em) {
+    .inventory__notice { align-items: center; gap: var(--s4); padding: var(--s4) var(--s5); }
+    .inventory__notice-icon { width: 44px; height: 44px; border-radius: 12px; }
+    .inventory__notice-icon .icon { width: 22px; height: 22px; }
+    .inventory__notice-title { font-size: 1rem; }
+    .inventory__notice-text { font-size: 0.9375rem; line-height: 1.5; }
+}
 .vehicle-card__head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 2px var(--s2); }
 :is(.inventory, .latest) .vehicle-card__head .vehicle-card__title { flex: 1 1 3.25rem; min-width: 0; overflow-wrap: break-word; }
-:is(.inventory, .latest) .vehicle-card__price { flex: 0 0 auto; margin: 0; padding: 0; max-width: 100%; font-size: 0.75rem; font-weight: 700; line-height: 1.25; text-align: right; white-space: nowrap; }
+:is(.inventory, .latest) .vehicle-card__price { flex: 0 0 auto; margin: 0; padding: 0; max-width: 100%; font-size: 0.75rem; font-weight: 600; line-height: 1.25; text-align: right; white-space: nowrap; }
 .vehicle-card__duty { display: block; margin-top: 2px; color: var(--muted); font-size: 0.625rem; font-weight: 500; letter-spacing: 0.02em; }
 :is(.inventory, .latest) .vehicle-card__status {
     position: absolute; left: var(--s2); bottom: var(--s2); z-index: 2; display: inline-flex; align-items: center; gap: 5px; margin: 0; padding: 3px 8px 3px 7px; pointer-events: none;
-    color: var(--ink); font-size: 0.6875rem; font-weight: 600; line-height: 1.4; letter-spacing: 0.02em; background: rgba(255, 255, 255, 0.94); border-radius: 4px;
+    color: var(--ink); font-size: 0.6875rem; font-weight: 500; line-height: 1.4; letter-spacing: 0.02em; background: rgba(255, 255, 255, 0.94); border-radius: 4px;
 }
+/* Spec 23: accident-damaged vehicles carry a plain, always-visible label (top left of the photograph) */
+.vehicle-card__damage { position: absolute; left: var(--s2); top: var(--s2); z-index: 2; margin: 0; padding: 3px 8px; pointer-events: none; color: #fff; font-size: 0.6875rem; font-weight: 600; line-height: 1.4; letter-spacing: 0.03em; text-transform: uppercase; background: var(--ink); border-radius: 4px; }
+@media (max-width: 29.99em) { .vehicle-card__damage { max-width: calc(100% - 60px); padding: 2px 6px; font-size: 0.625rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .vehicle-card__damage-more { display: none; } }   /* small phones, two cards per row: "ACCIDENT", clear of the heart */
 :is(.inventory, .latest) .vehicle-card__status::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #2f6b3f; }
 :is(.inventory, .latest) .vehicle-card__status--reserved::before { background: var(--accent); }
 @media (hover: hover) { :is(.inventory, .latest) .vehicle-card:hover .vehicle-card__media img { transform: none; } }
@@ -178,7 +195,7 @@ body.inv-open { overflow: hidden; }
 .vehicle-card__duty-link {
     position: relative; z-index: 2; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
     align-self: flex-start; min-height: 36px; margin-top: var(--s3); padding: 0 var(--s3);
-    color: var(--ink); font-size: 0.75rem; font-weight: 600; line-height: 1.2; text-decoration: none;
+    color: var(--ink); font-size: 0.75rem; font-weight: 500; line-height: 1.2; text-decoration: none;
     background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius);
 }
 .vehicle-card__duty-link .icon { width: 15px; height: 15px; color: var(--accent); }

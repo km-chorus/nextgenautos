@@ -3,7 +3,12 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/services/CustomerAuthService.php';
+require_once dirname(__DIR__) . '/services/CustomerVerificationService.php';
+require_once dirname(__DIR__) . '/services/CustomerDashboardService.php';
+require_once dirname(__DIR__) . '/services/ShipmentService.php';
 require_once dirname(__DIR__) . '/validation/CustomerValidator.php';
+require_once dirname(__DIR__) . '/services/CustomerAccountService.php';
+require_once dirname(__DIR__) . '/services/CustomerPasswordResetService.php';
 
 /**
  * Customer sign-in, registration and account pages (spec 13_spec_customer_auth.md). Returns view data; the
@@ -29,6 +34,9 @@ final class CustomerAuthController
 {
     public const MESSAGE_INVALID = 'Invalid email or password.';
     public const MESSAGE_THROTTLED = 'Too many attempts. Wait a few minutes and try again.';
+    /** Rate-limit messages are shown as a toast with a progress bar (owner request 2026-10-22). */
+    public const TOAST_LOGIN_THROTTLED = 'Too many failed sign-in attempts. Please try again after 15 minutes.';
+    public const TOAST_TOO_MANY = 'Too many requests. Please try again after some time.';
     public const MESSAGE_CSRF = "We couldn't verify your request. Reload the page and try again.";
     public const MESSAGE_ERROR = 'Something went wrong. Please try again.';
     public const MESSAGE_EXISTS = 'An account with this email address already exists. Sign in instead.';
@@ -54,7 +62,7 @@ final class CustomerAuthController
         try {
             $auth = $this->auth();
             if ($auth->currentCustomer() !== null) {
-                return ['redirect' => $auth->sessions()->consumeReturnTo() ?? '/account/'] + $view;
+                return ['redirect' => $auth->sessions()->consumeReturnTo() ?? '/track/'] + $view;
             }
 
             if ($method === 'POST') {
@@ -75,11 +83,11 @@ final class CustomerAuthController
                     if ($view['errors'] === []) {
                         $result = $auth->attempt($email, $password, $ip, $userAgent)['status'];
                         if ($result === CustomerAuthService::LOGIN_OK) {
-                            return ['redirect' => $auth->sessions()->consumeReturnTo() ?? '/account/'] + $view;
+                            return ['redirect' => $auth->sessions()->consumeReturnTo() ?? '/track/'] + $view;
                         }
                         if ($result === CustomerAuthService::LOGIN_THROTTLED) {
                             $view['http'] = 429;
-                            $view['message'] = self::MESSAGE_THROTTLED;
+                            $view['toast'] = ['type' => 'error', 'text' => self::TOAST_LOGIN_THROTTLED];
                         } else {
                             $view['message'] = self::MESSAGE_INVALID;
                         }
@@ -92,8 +100,14 @@ final class CustomerAuthController
                     $view['notice'] = ['type' => 'success', 'text' => 'You have been signed out.'];
                 } elseif ($reason === 'track') {
                     $view['notice'] = ['type' => 'info', 'text' => 'Sign in to track your vehicle.'];
+                } elseif ($reason === 'favourite') {
+                    $view['notice'] = ['type' => 'info', 'text' => 'Sign in to save vehicles to your favourites.'];
                 } elseif ($reason === 'google') {
                     $view['message'] = 'Google sign-in could not be completed. Please try again, or sign in with your email address.';
+                } elseif ($reason === 'throttled') {
+                    $view['toast'] = ['type' => 'error', 'text' => self::TOAST_TOO_MANY];
+                } elseif ($reason === 'reset') {
+                    $view['toast'] = ['type' => 'success', 'text' => 'Your password has been changed. Sign in with your new password.'];
                 }
             }
 
@@ -118,7 +132,7 @@ final class CustomerAuthController
         try {
             $auth = $this->auth();
             if ($auth->currentCustomer() !== null) {
-                return ['redirect' => $auth->sessions()->consumeReturnTo() ?? '/account/'] + $view;
+                return ['redirect' => $auth->sessions()->consumeReturnTo() ?? '/track/'] + $view;
             }
 
             if ($method === 'POST') {
@@ -134,11 +148,20 @@ final class CustomerAuthController
                     $v = $checked['values'];
                     $result = $auth->register($v['name'], $v['email'], $v['password'], $ip, $userAgent)['status'];
                     if ($result === CustomerAuthService::REGISTER_OK) {
-                        return ['redirect' => $auth->sessions()->consumeReturnTo() ?? '/account/'] + $view;
+                        $new = $auth->currentCustomer();
+                        if ($new !== null) {
+                            try {
+                                CustomerVerificationService::create()->send($new['id'], $ip, $userAgent);
+                            } catch (Throwable $e) {
+                                error_log('Confirmation email could not be sent after registration: ' . get_class($e));
+                            }
+                        }
+
+                        return ['redirect' => $auth->sessions()->consumeReturnTo() ?? '/track/'] + $view;
                     }
                     if ($result === CustomerAuthService::REGISTER_THROTTLED) {
                         $view['http'] = 429;
-                        $view['message'] = self::MESSAGE_THROTTLED;
+                        $view['toast'] = ['type' => 'error', 'text' => self::TOAST_TOO_MANY];
                     } else {
                         $view['errors']['email'] = self::MESSAGE_EXISTS;
                     }
@@ -177,6 +200,11 @@ final class CustomerAuthController
                 if (!$auth->sessions()->verifyCsrf($post[CustomerSessionService::CSRF_FIELD] ?? null)) {
                     return ['redirect' => '/account/'] + $view;   // no state change without a valid token
                 }
+                if (($post['action'] ?? null) === 'resend_verification') {
+                    $sent = CustomerVerificationService::create()->send($customer['id'], $ip, $userAgent);
+
+                    return ['redirect' => '/account/?verification=' . $sent] + $view;   // a fixed code, shown from an allow-list
+                }
                 $auth->logout($customer['id'], $ip, $userAgent);
 
                 return ['redirect' => '/login/?reason=signedout'] + $view;
@@ -184,8 +212,189 @@ final class CustomerAuthController
 
             $view['customer'] = $customer;
             $view['csrf'] = $auth->sessions()->csrfToken();
+            // Spec 22 dashboard. Everything is read for THIS session's account id only. Shipments only once the email is verified.
+            $dashboard = CustomerDashboardService::create();
+            $view['favourites'] = $dashboard->favourites($customer['id']);
+            $view['reservations'] = $dashboard->reservationRequests($customer['id']);
+            $view['shipments'] = $customer['verified'] ? ShipmentService::create()->forCustomer($customer['id']) : [];
         } catch (Throwable $e) {
             error_log('Customer account page failed to process: ' . get_class($e) . ': ' . $e->getMessage());
+
+            return self::failure($view);
+        }
+
+        return $view;
+    }
+
+    /**
+     * "Forgot your password?" (2026-10-22). POST: CSRF, then CustomerPasswordResetService::request. The answer never says
+     * whether the address has an account; the address is remembered in the session so the code form can fill it in.
+     *
+     * @param array<string,mixed> $post
+     * @return array<string,mixed>
+     */
+    public function forgot(string $method, array $post, string $ip, string $userAgent): array
+    {
+        $view = self::view();
+        try {
+            $auth = $this->auth();
+            if ($auth->currentCustomer() !== null) {
+                return ['redirect' => '/account/settings/'] + $view;   // signed in: change the password in the settings
+            }
+            if ($method === 'POST') {
+                $email = is_string($post['email'] ?? null) ? substr(trim($post['email']), 0, 255) : '';
+                $view['values'] = ['email' => $email];
+                if (!$auth->sessions()->verifyCsrf($post[CustomerSessionService::CSRF_FIELD] ?? null)) {
+                    $view['http'] = 400;
+                    $view['message'] = self::MESSAGE_CSRF;
+                } else {
+                    $result = CustomerPasswordResetService::create()->request($email, $ip, $userAgent);
+                    if ($result === 'invalid') {
+                        $view['errors']['email'] = 'Enter a valid email address.';
+                    } elseif ($result === 'throttled') {
+                        $view['http'] = 429;
+                        $view['toast'] = ['type' => 'error', 'text' => self::TOAST_TOO_MANY];
+                    } else {
+                        $auth->sessions()->rememberResetEmail(CustomerAuthService::normalizeEmail($email));
+
+                        return ['redirect' => '/reset-password/?sent=1'] + $view;
+                    }
+                }
+            }
+            $view['csrf'] = $auth->sessions()->csrfToken();
+        } catch (Throwable $e) {
+            error_log('Forgot password failed: ' . get_class($e) . ': ' . $e->getMessage());
+
+            return self::failure($view);
+        }
+
+        return $view;
+    }
+
+    /**
+     * Set a new password (2026-10-22): with the emailed link (?t=) or with email + 6-digit code. POST: CSRF, then
+     * CustomerPasswordResetService::reset; success goes to the sign-in page with a confirmation toast.
+     *
+     * @param array<string,mixed> $post
+     * @param array<string,mixed> $query
+     * @return array<string,mixed>
+     */
+    public function resetPassword(string $method, array $post, array $query, string $ip, string $userAgent): array
+    {
+        $view = self::view() + ['mode' => 'code', 'token' => null, 'linkState' => null, 'sent' => false];
+        try {
+            $auth = $this->auth();
+            $service = CustomerPasswordResetService::create();
+            $token = $method === 'POST' ? ($post['t'] ?? null) : ($query['t'] ?? null);
+            if ($token !== null) {
+                $view['mode'] = 'link';
+                $view['token'] = is_string($token) && strlen($token) <= 80 ? $token : '';
+            }
+            if ($method === 'POST') {
+                if (!$auth->sessions()->verifyCsrf($post[CustomerSessionService::CSRF_FIELD] ?? null)) {
+                    $view['http'] = 400;
+                    $view['message'] = self::MESSAGE_CSRF;
+                } else {
+                    $input = $view['mode'] === 'link' ? ['t' => $view['token']] + $post : array_diff_key($post, ['t' => 1]);
+                    $result = $service->reset($input, $ip, $userAgent);
+                    if ($result['status'] === 'ok') {
+                        $auth->sessions()->rememberResetEmail(null);
+
+                        return ['redirect' => '/login/?reason=reset'] + $view;
+                    }
+                    if ($result['status'] === 'throttled') {
+                        $view['http'] = 429;
+                        $view['toast'] = ['type' => 'error', 'text' => self::TOAST_TOO_MANY];
+                    } elseif ($view['mode'] === 'link' && $result['errors'] === []) {
+                        $view['linkState'] = $result['status'];   // 'invalid' | 'expired'
+                    }
+                    $view['errors'] = $result['errors'];
+                    $view['values'] = ['email' => is_string($post['email'] ?? null) ? substr(trim($post['email']), 0, 255) : ''];
+                }
+            } elseif ($view['mode'] === 'link') {
+                $state = $service->checkLink($view['token'], $ip);
+                if ($state === 'throttled') {
+                    $view['http'] = 429;
+                    $view['toast'] = ['type' => 'error', 'text' => self::TOAST_TOO_MANY];
+                }
+                $view['linkState'] = $state === 'ok' ? null : $state;
+            } else {
+                $view['sent'] = ($query['sent'] ?? null) === '1';
+                $view['values'] = ['email' => (string) ($auth->sessions()->resetEmail() ?? '')];
+            }
+            $view['csrf'] = $auth->sessions()->csrfToken();
+        } catch (Throwable $e) {
+            error_log('Password reset failed: ' . get_class($e) . ': ' . $e->getMessage());
+
+            return self::failure($view);
+        }
+
+        return $view;
+    }
+
+    /** Fixed confirmations for the account settings page, chosen by a code in the URL (never echoed). */
+    private const SETTINGS_SAVED = [
+        'name'     => ['success', 'Your name has been updated.'],
+        'password' => ['success', 'Your password has been changed.'],
+        'none'     => ['info', 'No changes were made.'],
+    ];
+
+    /**
+     * Account settings (owner request 2026-10-22): change the name and the password. Signed-in customers only; every POST
+     * needs the customer CSRF token and is answered with Post/Redirect/Get. The account id comes from the session.
+     *
+     * @param array<string,mixed> $post
+     * @param array<string,mixed> $query
+     * @return array<string,mixed>
+     */
+    public function settings(string $method, array $post, array $query, string $ip, string $userAgent): array
+    {
+        $view = self::view() + ['hasPassword' => false];
+
+        try {
+            $auth = $this->auth();
+            $customer = $auth->currentCustomer();
+            if ($customer === null) {
+                $auth->sessions()->setReturnTo('/account/settings/');
+
+                return ['redirect' => '/login/'] + $view;
+            }
+            $account = CustomerAccountService::create();
+
+            if ($method === 'POST') {
+                if (!$auth->sessions()->verifyCsrf($post[CustomerSessionService::CSRF_FIELD] ?? null)) {
+                    return ['redirect' => '/account/settings/'] + $view;   // no change without a valid token
+                }
+                $action = $post['action'] ?? null;
+                if ($action === 'name') {
+                    $result = $account->changeName($customer['id'], $post, $ip, $userAgent);
+                    if ($result['status'] !== 'invalid') {
+                        return ['redirect' => '/account/settings/?saved=' . ($result['status'] === 'ok' ? 'name' : 'none')] + $view;
+                    }
+                    $view['errors'] = $result['errors'];
+                    $view['values']['name'] = $result['value'];
+                } elseif ($action === 'password') {
+                    $result = $account->changePassword($customer['id'], $post, $ip, $userAgent);
+                    if ($result['status'] === 'ok') {
+                        return ['redirect' => '/account/settings/?saved=password'] + $view;
+                    }
+                    if ($result['status'] === 'throttled') {
+                        $view['http'] = 429;
+                        $view['message'] = 'Too many wrong passwords. Please wait 15 minutes and try again.';
+                    }
+                    $view['errors'] = $result['errors'];
+                }
+            } else {
+                $saved = self::SETTINGS_SAVED[is_string($query['saved'] ?? null) ? $query['saved'] : ''] ?? null;
+                $view['notice'] = $saved === null ? null : ['type' => $saved[0], 'text' => $saved[1]];
+            }
+
+            $view['customer'] = $customer;
+            $view['values'] += ['name' => $customer['name']];
+            $view['hasPassword'] = $account->hasPassword($customer['id']);
+            $view['csrf'] = $auth->sessions()->csrfToken();
+        } catch (Throwable $e) {
+            error_log('Customer account settings failed: ' . get_class($e) . ': ' . $e->getMessage());
 
             return self::failure($view);
         }
@@ -224,6 +433,10 @@ final class CustomerAuthController
                 return '/account/';
             }
 
+            if ($this->auth()->googleThrottled($ip)) {
+                return '/login/?reason=throttled';
+            }
+
             return $this->auth()->googleStart($ip, $userAgent) ?? '/login/?reason=google';
         } catch (Throwable $e) {
             error_log('Google sign-in could not start: ' . get_class($e) . ': ' . $e->getMessage());
@@ -246,7 +459,7 @@ final class CustomerAuthController
         try {
             $auth = $this->auth();
 
-            return $auth->googleFinish($state, $code, $ip, $userAgent) ? ($auth->sessions()->consumeReturnTo() ?? '/account/') : '/login/?reason=google';
+            return $auth->googleFinish($state, $code, $ip, $userAgent) ? ($auth->sessions()->consumeReturnTo() ?? '/track/') : '/login/?reason=google';
         } catch (Throwable $e) {
             error_log('Google sign-in failed to process: ' . get_class($e) . ': ' . $e->getMessage());
 
@@ -258,7 +471,8 @@ final class CustomerAuthController
     private static function view(): array
     {
         return ['google' => AppConfig::googleConfigured(), 'redirect' => null, 'http' => 200, 'message' => null, 'notice' => null,
-            'values' => [], 'errors' => [], 'csrf' => '', 'customer' => null, 'unavailable' => false];
+            'values' => [], 'errors' => [], 'csrf' => '', 'customer' => null, 'unavailable' => false, 'favourites' => [], 'reservations' => [], 'shipments' => [],
+            'toast' => null];   // toast: ?array{type,text} shown with a progress bar (rate limits, confirmations)
     }
 
     /** @param array<string,mixed> $view @return array<string,mixed> */

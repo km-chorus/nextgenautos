@@ -7,6 +7,8 @@ require_once dirname(__DIR__) . '/repositories/VehicleRepository.php';
 require_once dirname(__DIR__) . '/repositories/VehicleImageRepository.php';
 require_once dirname(__DIR__) . '/repositories/BrandRepository.php';
 require_once dirname(__DIR__) . '/validation/PublicVehicleSearchValidator.php';
+require_once dirname(__DIR__) . '/validation/VehicleValidator.php';
+require_once __DIR__ . '/AccidentVehicleSettings.php';
 
 /**
  * Vehicle data for the PUBLIC website (spec 10B card data; homepage search and the Vehicles page): turns database rows into
@@ -27,7 +29,7 @@ require_once dirname(__DIR__) . '/validation/PublicVehicleSearchValidator.php';
  */
 class PublicVehicleService
 {
-    public const PER_PAGE = 12;
+    public const PER_PAGE = 20;   // vehicles per page of the public lists (owner request 2026-10-22); only these rows are read (LIMIT/OFFSET)
     private const PHOTOS = 5;   // photographs offered on one card (the first plus four)
     private const PRICE_STEPS = [5000, 10000, 20000, 30000, 50000, 75000, 100000, 150000, 200000, 300000, 500000, 750000, 1000000, 2000000, 5000000];
 
@@ -54,6 +56,29 @@ class PublicVehicleService
     public function search(array $filters, int $perPage = self::PER_PAGE): array
     {
         $perPage = max(1, min($perPage, 48));
+        $filters['section'] = VehicleRepository::SECTION_NORMAL;      // spec 23: accident vehicles have their own page
+        $total = $this->vehicles->publicCount($filters);
+        $pages = max(1, (int) ceil($total / $perPage));
+        $page = max(1, min((int) ($filters['page'] ?? 1), $pages));
+        $rows = $total === 0 ? [] : $this->vehicles->publicSearch($filters, $perPage, ($page - 1) * $perPage);
+
+        return ['cards' => $this->cards($rows), 'total' => $total, 'page' => $page, 'pages' => $pages];
+    }
+
+    /**
+     * Spec 23: one page of the ACCIDENT vehicles (own page; only while the administrator has switched it on).
+     * Null when the page is off. Same card shape, plus the damage summary of each vehicle.
+     *
+     * @param array<string,mixed> $filters validated by PublicVehicleSearchValidator
+     * @return array{cards:list<array<string,mixed>>,total:int,page:int,pages:int}|null
+     */
+    public function accidentSearch(array $filters, bool $enabled, int $perPage = self::PER_PAGE): ?array
+    {
+        if (!$enabled) {
+            return null;
+        }
+        $perPage = max(1, min($perPage, 48));
+        $filters['section'] = VehicleRepository::SECTION_ACCIDENT;
         $total = $this->vehicles->publicCount($filters);
         $pages = max(1, (int) ceil($total / $perPage));
         $page = max(1, min((int) ($filters['page'] ?? 1), $pages));
@@ -77,16 +102,33 @@ class PublicVehicleService
      * One public vehicle for its own page (spec 14): the card fields plus the full gallery (large photo and thumbnail
      * of every image, primary first, in the administrator's order), description, features and shipping information.
      * Null when no PUBLIC vehicle has this slug (sold, unavailable, unpublished, archived or unknown).
-     * 'id' is for the enquiry service only; the view never prints it.
+     * 'id' is for the enquiry service only; the view never prints it. 'fit' (spec 28) is the make / model / year used to
+     * find compatible parts.
      *
-     * @return array{id:int,vehicle:array<string,mixed>}|null
+     * @return array{id:int,fit:array{brand_id:int,brand_slug:string,model:string,year:int},vehicle:array<string,mixed>}|null
      */
-    public function detail(string $slug): ?array
+    /**
+     * "2015 Toyota Corolla LE" for a PUBLIC vehicle's slug (spec 28: the contact message when a part is requested from a
+     * vehicle page), or null when no public vehicle has it. The slug is untrusted and checked first.
+     */
+    public function titleBySlug(mixed $slug, ?bool $accidentEnabled = null): ?string
     {
+        if (!is_string($slug) || strlen($slug) > 160 || preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/', $slug) !== 1) {
+            return null;
+        }
+        $row = $this->vehicles->publicBySlug($slug, $accidentEnabled ?? AccidentVehicleSettings::enabled());
+
+        return $row === null ? null : trim($row['year'] . ' ' . $row['brand_name'] . ' ' . trim($row['model'] . ' ' . (string) $this->clean($row['trim'])));
+    }
+
+    public function detail(string $slug, ?bool $accidentEnabled = null): ?array
+    {
+        $accidentEnabled ??= AccidentVehicleSettings::enabled();
         if (strlen($slug) > 160 || preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/', $slug) !== 1) {
             return null;
         }
-        $row = $this->vehicles->publicBySlug($slug);
+        $row = $this->vehicles->publicBySlug($slug, $accidentEnabled);
+        $accident = (int) ($row['is_accident'] ?? 0) === 1;
         if ($row === null) {
             return null;
         }
@@ -100,7 +142,7 @@ class PublicVehicleService
             $thumb = $this->storedImage($photo['path'], '-t');
             if ($large !== null) {
                 $alt = trim((string) ($photo['alt'] ?? ''));
-                $photos[] = ['large' => $large, 'thumb' => $thumb ?? $large, 'alt' => $alt !== '' ? $alt : $title, 'type' => ($photo['type'] ?? 'exterior') === 'interior' ? 'interior' : 'exterior'];
+                $photos[] = ['large' => $large, 'thumb' => $thumb ?? $large, 'alt' => $alt !== '' ? $alt : $title, 'type' => self::photoType((string) ($photo['type'] ?? 'exterior'), $accident)];
             }
         }
 
@@ -142,7 +184,12 @@ class PublicVehicleService
             ['Availability', $row['availability_status'] === 'reserved' ? 'Reserved' : 'Available'],
         ]))];
 
-        return ['id' => $id, 'vehicle' => [
+        return ['id' => $id, 'fit' => ['brand_id' => (int) $row['brand_id'], 'brand_slug' => (string) $row['brand_slug'], 'model' => (string) $row['model'], 'year' => (int) $row['year']],
+            // SEO 2026-10-27: the raw values behind the visible price and specifications, for structured data only (never printed)
+            'schema' => ['price' => (string) $row['price'], 'currency' => (string) $row['currency'], 'mileage' => $row['mileage'] === null ? null : (int) $row['mileage'],
+                'mileage_unit' => $row['mileage_unit'] === null ? null : (string) $row['mileage_unit'], 'fuel' => $this->clean($row['fuel_type']),
+                'transmission' => $this->clean($row['transmission']), 'model' => (string) $row['model']],
+            'vehicle' => [
             'title'       => $title,
             'headline'    => trim($row['brand_name'] . ' ' . $row['model']),
             'trim'        => $this->clean($row['trim']),
@@ -163,6 +210,7 @@ class PublicVehicleService
             'description' => $this->clean($row['description']),
             'features'    => $features,
             'shipping'    => $this->clean($row['shipping_info']),
+            'accident'    => $accident ? $this->damage($row) : null,   // spec 23: full disclosure
         ]];
     }
 
@@ -173,13 +221,13 @@ class PublicVehicleService
      *
      * @return array{brands:list<array{slug:string,name:string}>,models:array<string,array{name:string,models:list<string>}>,years:list<int>,prices:list<int>}
      */
-    public function searchOptions(): array
+    public function searchOptions(string $section = VehicleRepository::SECTION_NORMAL): array
     {
         $brands = [];
         foreach ($this->brands?->search('', 'active') ?? [] as $brand) {
             $brands[] = ['slug' => (string) $brand['slug'], 'name' => (string) $brand['name']];
         }
-        $values = $this->vehicles->publicFilterValues();
+        $values = $this->vehicles->publicFilterValues($section);
         $models = [];
         foreach ($values['models'] as $row) {
             $slug = (string) $row['brand_slug'];
@@ -255,12 +303,49 @@ class PublicVehicleService
                 'status'   => $row['availability_status'] === 'reserved' ? 'Reserved' : 'Available',
                 'reserved' => $row['availability_status'] === 'reserved',
                 'url'      => '/vehicle/' . $slug . '/',
+                'slug'     => $slug,
                 'image'    => $image,
                 'alt'      => $alt !== '' ? $alt : $title,
+                'accident' => (int) ($row['is_accident'] ?? 0) === 1,  // spec 23: labelled "Accident-damaged"
             ];
         }
 
         return $cards;
+    }
+
+    /** Gallery tab of a photo: damage photos form their own tab on an accident vehicle; elsewhere they count as exterior. */
+    private static function photoType(string $type, bool $accident): string
+    {
+        return match (true) {
+            $type === 'interior'            => 'interior',
+            $type === 'damage' && $accident => 'damage',
+            default                         => 'exterior',
+        };
+    }
+
+    /**
+     * Spec 23: the damage disclosure of an accident vehicle, as the visitor reads it (labels, never raw keys).
+     *
+     * @param array<string,mixed> $row
+     * @return array{description:string,areas:list<string>,facts:list<array{0:string,1:string}>}
+     */
+    private function damage(array $row): array
+    {
+        $areas = [];
+        foreach (array_filter(explode(',', (string) ($row['damage_areas'] ?? ''))) as $key) {
+            if (isset(VehicleValidator::DAMAGE_AREAS[$key])) {
+                $areas[] = VehicleValidator::DAMAGE_AREAS[$key];
+            }
+        }
+        $facts = [];
+        foreach ([['Runs and drives', VehicleValidator::RUNS_DRIVES, 'runs_drives'], ['Airbags deployed', VehicleValidator::AIRBAGS, 'airbags_deployed'],
+            ['Title status', VehicleValidator::TITLE_STATUSES, 'title_status']] as [$label, $choices, $key]) {
+            if (isset($choices[(string) ($row[$key] ?? '')])) {
+                $facts[] = [$label, $choices[(string) $row[$key]]];
+            }
+        }
+
+        return ['description' => (string) $this->clean($row['damage_description'] ?? null), 'areas' => $areas, 'facts' => $facts];
     }
 
     private function clean(mixed $value): ?string

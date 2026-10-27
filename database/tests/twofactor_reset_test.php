@@ -112,6 +112,8 @@ putenv('APP_URL=http://localhost:8000');
 putenv('PASSWORD_RESET_MINUTES=30');
 putenv('BREVO_API_KEY=not-a-real-key-for-tests');
 putenv('MAIL_FROM_EMAIL=noreply@example.test');
+putenv('MAIL_FROM_ADDRESS=noreply@example.test');
+putenv('MAIL_MAILER=brevo_api');   // these tests exercise the Brevo API transport (the developer's .env may select SMTP)
 
 // ------------------------------------------------------------ TOTP library + codes
 section('TOTP (RFC 6238) and codes');
@@ -122,7 +124,7 @@ $secret = TwoFactorService::newSecret();
 check('new secret is 160 random bits as 32 base32 characters', preg_match('/^[A-Z2-7]{32}$/', $secret) === 1);
 check('two secrets differ', $secret !== TwoFactorService::newSecret());
 $uri = TwoFactorService::provisioningUri($secret, 'a.b@example.test');
-check('provisioning URI is a standard otpauth://totp URI with issuer, label and the secret', str_starts_with($uri, 'otpauth://totp/') && str_contains($uri, 'issuer=Amponsah%20Autos') && str_contains($uri, 'secret=' . $secret) && str_contains($uri, 'a.b%40example.test'));
+check('provisioning URI is a standard otpauth://totp URI with issuer, label and the secret', str_starts_with($uri, 'otpauth://totp/') && str_contains($uri, 'issuer=' . rawurlencode(AppConfig::TWO_FACTOR_ISSUER)) && str_contains($uri, 'secret=' . $secret) && str_contains($uri, 'a.b%40example.test'));
 $svg = TwoFactorService::qrSvg($uri);
 check('QR code is a locally generated SVG with no script, handler or external reference', str_starts_with($svg, '<svg') && !preg_match('/<script|on[a-z]+=|href=|xlink|style=/i', $svg));
 check('the QR SVG does not contain the secret as readable text', !str_contains($svg, $secret));
@@ -371,9 +373,9 @@ try {
     $reset->requestReset('  DELTA' . TEST_EMAIL_BASE . ' ', '192.0.2.20', $ua);
     check('known active account: exactly one email, to that address', count($mail->sent) === 1 && $mail->sent[0]['to'] === 'delta' . TEST_EMAIL_BASE && $mail->sent[0]['minutes'] === 30);
     $url = $mail->sent[0]['url'];
-    preg_match('#^http://localhost:8000/admin/reset-password\.php\?token=([a-f0-9]{64})$#', $url, $m);
+    preg_match('#^https://nextgenautosandparts\.com/admin/reset-password\.php\?token=([a-f0-9]{64})$#', $url, $m);
     $token = $m[1] ?? '';
-    check('the link is built from APP_URL (not from the request) and carries a 64-hex (256-bit) token', $token !== '');
+    check('the link uses the production domain (never localhost, never the request) and carries a 64-hex (256-bit) token', $token !== '');
     $tokenRow = run($pdo, 'SELECT token_hash, expires_at, used_at FROM password_reset_tokens WHERE admin_user_id = ?', [$adminD])->fetch();
     check('only the SHA-256 hash is stored: the raw token is not in the database', $tokenRow['token_hash'] === hash('sha256', $token) && $tokenRow['token_hash'] !== $token
         && (int) run($pdo, 'SELECT COUNT(*) FROM password_reset_tokens WHERE token_hash = ?', [$token])->fetchColumn() === 0);
@@ -466,7 +468,7 @@ try {
         !PasswordResetService::isAvailable() && $ctrl->submitForgot([CSRF_FIELD_NAME => csrf_token(), 'email' => 'x' . TEST_EMAIL_BASE], '192.0.2.63', $ua)['status'] === 'unavailable');
     putenv('BREVO_API_KEY=not-a-real-key-for-tests');
     putenv('APP_URL=ftp://wrong');
-    check('an unusable APP_URL (not http/https) also makes it unavailable', AppConfig::appUrl() === null && !PasswordResetService::isAvailable());
+    check('an unusable APP_URL is refused, but email links do not depend on it (production domain)', AppConfig::appUrl() === null && PasswordResetService::isAvailable() && AppConfig::linkUrl() === 'https://nextgenautosandparts.com');
     putenv('APP_ENV=production'); putenv('APP_URL=http://plain-http.example');
     check('in production an http:// APP_URL is refused (https required)', AppConfig::appUrl() === null);
     putenv('APP_URL=https://admin.example.com/');

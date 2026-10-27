@@ -55,6 +55,7 @@ class PartService
         $fitments = $this->parts->fitmentsFor(array_map(static fn (array $r): int => (int) $r['id'], $rows));
         foreach ($rows as &$row) {
             $row['fits'] = self::fitsSummary($fitments[(int) $row['id']] ?? []);
+            $row['fit_count'] = count($fitments[(int) $row['id']] ?? []);
         }
         unset($row);
 
@@ -65,13 +66,14 @@ class PartService
         ];
     }
 
-    /** @return array<string,mixed>|null the part with 'fitments' and 'images' */
+    /** @return array<string,mixed>|null the part with 'numbers' (main first), 'fitments' and 'images' */
     public function find(int $id): ?array
     {
         $part = $this->parts->find($id);
         if ($part === null) {
             return null;
         }
+        $part['numbers'] = $this->parts->partNumbersFor([$id])[$id] ?? [];
         $part['fitments'] = $this->parts->fitmentsFor([$id])[$id] ?? [];
         $part['images'] = $this->parts->images($id);
 
@@ -110,7 +112,7 @@ class PartService
             return ['status' => self::RESULT_INVALID, 'errors' => $errors] + $fail;
         }
 
-        $stored = $this->storePhotos($photos, $errors);
+        $stored = $this->storePhotos($photos, $errors);   // only after every check passed: nothing is written for a refused form
         if ($stored === null) {
             return ['status' => self::RESULT_INVALID, 'errors' => $errors] + $fail;
         }
@@ -118,8 +120,9 @@ class PartService
         $values = $checked['values'];
         try {
             $id = Transaction::run($this->pdo, function () use ($values, $checked, $stored, $adminId, $ip, $userAgent): int {
-                $slug = $this->uniqueSlug($values['name'], $values['part_number']);
+                $slug = $this->uniqueSlug($values['name'], $values['part_numbers'][0] ?? null);
                 $id = $this->parts->insert($values, $slug);
+                $this->parts->replacePartNumbers($id, $values['part_numbers']);
                 $this->parts->replaceFitments($id, PartValidator::fitmentRecords($checked['fitments']));
                 foreach ($stored as $n => $photo) {
                     $this->parts->insertImage($id, $photo['path'], $photo['original'], $values['name'], $n === 0);
@@ -162,11 +165,14 @@ class PartService
 
         $values = $checked['values'];
         $changed = [];
-        foreach (['category_id', 'name', 'part_number', 'condition', 'price', 'currency', 'stock_status', 'description', 'is_published'] as $field) {
-            $old = $field === 'price' ? number_format((float) $existing['price'], 2, '.', '') : (string) ($existing[$field] ?? '');
+        foreach (['category_id', 'name', 'condition', 'price', 'currency', 'stock_status', 'description', 'is_published'] as $field) {
+            $old = $field === 'price' && $existing['price'] !== null ? number_format((float) $existing['price'], 2, '.', '') : (string) ($existing[$field] ?? '');
             if ($old !== (string) ($values[$field] ?? '')) {
                 $changed[] = $field;
             }
+        }
+        if ($values['part_numbers'] !== $existing['numbers']) {
+            $changed[] = 'part numbers';
         }
         $newFitments = PartValidator::fitmentRecords($checked['fitments']);
         $oldFitments = array_map(static fn (array $f): array => ['brand_id' => $f['brand_id'], 'model' => $f['model'], 'year_from' => $f['year_from'], 'year_to' => $f['year_to']], $existing['fitments']);
@@ -187,6 +193,9 @@ class PartService
                     return self::RESULT_NOT_FOUND;   // archived by someone else in the meantime
                 }
                 $this->parts->update($id, $values);
+                if (in_array('part numbers', $changed, true)) {
+                    $this->parts->replacePartNumbers($id, $values['part_numbers']);
+                }
                 if (in_array('compatible vehicles', $changed, true)) {
                     $this->parts->replaceFitments($id, $newFitments);
                 }
@@ -271,6 +280,100 @@ class PartService
         }
 
         return $outcome;
+    }
+
+    // ---- copy compatible vehicles (spec 27) -------------------------------------------------------------------------
+
+    /** @return list<array{id:int,name:string,part_number:?string,fitments:int}> parts whose compatible vehicles can be copied */
+    public function copySources(?int $exceptId = null): array
+    {
+        return $this->parts->copySources($exceptId);
+    }
+
+    /**
+     * "Copy from another part": the rows already typed plus the source part's compatible vehicles (rows already in the
+     * list are not repeated). Nothing is saved; the administrator reviews the rows and presses Save.
+     *
+     * @param list<array{brand_id:string,model:string,year_from:string,year_to:string}> $typed
+     * @return array{rows:list<array{brand_id:string,model:string,year_from:string,year_to:string}>,added:int,source:?string,error:?string}
+     */
+    public function copyFitments(mixed $rawSourceId, array $typed, ?int $exceptId): array
+    {
+        $sourceId = PartValidator::id($rawSourceId);
+        $source = $sourceId === null || $sourceId === $exceptId ? null : $this->parts->find($sourceId);
+        if ($source === null) {
+            return ['rows' => $typed, 'added' => 0, 'source' => null, 'error' => 'Choose a part to copy from.'];
+        }
+        $key = static fn (array $r): string => $r['brand_id'] . '|' . mb_strtolower(trim($r['model'])) . '|' . $r['year_from'] . '|' . $r['year_to'];
+        $have = array_flip(array_map($key, $typed));
+        $rows = $typed;
+        $added = 0;
+        foreach ($this->parts->fitmentsFor([$sourceId])[$sourceId] ?? [] as $f) {
+            $row = ['brand_id' => (string) $f['brand_id'], 'model' => (string) ($f['model'] ?? ''), 'year_from' => (string) ($f['year_from'] ?? ''), 'year_to' => (string) ($f['year_to'] ?? '')];
+            if (isset($have[$key($row)])) {
+                continue;
+            }
+            if (count($rows) >= PartValidator::FITMENTS_MAX) {
+                return ['rows' => $rows, 'added' => $added, 'source' => (string) $source['name'],
+                    'error' => 'Only ' . $added . ' vehicle(s) were copied: a part can have at most ' . PartValidator::FITMENTS_MAX . ' compatible vehicles.'];
+            }
+            $rows[] = $row;
+            $have[$key($row)] = true;
+            $added++;
+        }
+
+        return ['rows' => $rows, 'added' => $added, 'source' => (string) $source['name'], 'error' => null];
+    }
+
+    // ---- one-off import of the catalogue part types (spec 27, CLI only) ---------------------------------------------
+
+    /**
+     * Creates one published part with no price, condition, stock, part number or compatibility, and its main photo from a
+     * picture on disk (through the normal image pipeline: validation, WebP, hard size limits). Skips a slug that already
+     * exists (archived parts included), so running the import again changes nothing.
+     *
+     * @return string 'created' | 'skipped'
+     * @throws RuntimeException when the category is missing or the picture fails validation or processing
+     */
+    public function importCatalogPart(string $slug, string $name, string $categorySlug, ?string $picture, string $ip, string $userAgent): string
+    {
+        if ($this->parts->slugTaken($slug)) {
+            return 'skipped';
+        }
+        $category = null;
+        foreach ($this->parts->categories() as $c) {
+            if ($c['slug'] === $categorySlug) {
+                $category = $c;
+            }
+        }
+        if ($category === null) {
+            throw new RuntimeException('Unknown part category: ' . $categorySlug);
+        }
+        $stored = [];
+        if ($picture !== null) {
+            $check = ImageValidator::inspect($picture, 400, 300);
+            if (!$check['ok']) {
+                throw new RuntimeException('Picture refused (' . $check['reason'] . '): ' . basename($picture));
+            }
+            $result = $this->images->process($picture);
+            $stored[] = ['path' => $result['path'], 'original' => basename($picture)];
+        }
+        try {
+            Transaction::run($this->pdo, function () use ($slug, $name, $category, $stored, $ip, $userAgent): void {
+                $values = ['category_id' => $category['id'], 'name' => $name, 'condition' => null, 'price' => null, 'currency' => PartValidator::DEFAULT_CURRENCY,
+                    'stock_status' => null, 'description' => null, 'is_published' => 1];
+                $id = $this->parts->insert($values, $slug);
+                foreach ($stored as $photo) {
+                    $this->parts->insertImage($id, $photo['path'], $photo['original'], $name, true);
+                }
+                $this->audit->record('PART_IMPORTED', null, 'part', $id, 'Catalogue part imported: ' . $name . ' (' . $slug . '), published, price on request', $ip, $userAgent);
+            });
+        } catch (Throwable $e) {
+            $this->discard($stored);
+            throw $e;
+        }
+
+        return 'created';
     }
 
     // ---- categories -------------------------------------------------------------------------------------------------
@@ -387,7 +490,7 @@ class PartService
         return $errors;
     }
 
-    /** A slug from the name (and part number), made unique with -2, -3 ... @throws RuntimeException when none is free */
+    /** A slug from the name (and main part number), made unique with -2, -3 ... @throws RuntimeException when none is free */
     private function uniqueSlug(string $name, ?string $partNumber): string
     {
         $base = PartValidator::slugify($name . ($partNumber !== null ? ' ' . $partNumber : ''));

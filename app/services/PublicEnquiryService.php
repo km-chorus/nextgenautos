@@ -8,6 +8,7 @@ require_once dirname(__DIR__) . '/repositories/AuditLogRepository.php';
 require_once dirname(__DIR__) . '/validation/EnquiryValidator.php';
 require_once __DIR__ . '/PublicFormToken.php';
 require_once __DIR__ . '/Transaction.php';
+require_once __DIR__ . '/EnquiryAlertService.php';
 
 /**
  * Public vehicle enquiries and reservation requests (spec 14). Order of checks:
@@ -20,6 +21,8 @@ require_once __DIR__ . '/Transaction.php';
  *   count the enquiries table). A burst is logged once (ENQUIRY_RATE_LIMITED).
  * - A filled honeypot is answered exactly like a success, but nothing is stored (a bot learns nothing).
  * The vehicle id comes from the server (the page's slug lookup), never from the form.
+ * - After the enquiry is saved and committed, the company is emailed an alert (EnquiryAlertService, spec 15 §4). Its
+ *   result never changes the outcome: an email problem is logged and audited, and the customer still sees success.
  */
 final class PublicEnquiryService
 {
@@ -28,7 +31,7 @@ final class PublicEnquiryService
     public const PER_EMAIL_PER_HOUR = 3;
     private const TYPES = ['contact' => 'vehicle', 'reserve' => 'purchase', 'general' => null];   // 'general': the type is the chosen topic
 
-    public function __construct(private PDO $pdo, private EnquiryRepository $enquiries, private AuditLogRepository $audit)
+    public function __construct(private PDO $pdo, private EnquiryRepository $enquiries, private AuditLogRepository $audit, private ?EnquiryAlertService $alerts = null)
     {
     }
 
@@ -36,7 +39,8 @@ final class PublicEnquiryService
     {
         $pdo = Database::connection();
 
-        return new self($pdo, new EnquiryRepository($pdo), new AuditLogRepository($pdo));
+        return new self($pdo, new EnquiryRepository($pdo), new AuditLogRepository($pdo),
+            new EnquiryAlertService(new SettingsRepository($pdo), new EmailService(), new AuditLogRepository($pdo)));
     }
 
     /**
@@ -44,7 +48,7 @@ final class PublicEnquiryService
      * @return array{status:string,values:array<string,mixed>,errors:array<string,string>}
      *         status: sent | invalid (field errors) | expired (token) | retry (sent too quickly) | throttled | reserved
      */
-    public function submit(?int $vehicleId, bool $vehicleReserved, string $kind, array $post, string $ip, string $userAgent): array
+    public function submit(?int $vehicleId, bool $vehicleReserved, string $kind, array $post, string $ip, string $userAgent, ?int $customerId = null, ?string $vehicleTitle = null): array
     {
         if (!array_key_exists($kind, self::TYPES) || ($kind === 'general') !== ($vehicleId === null)) {
             return ['status' => 'expired', 'values' => [], 'errors' => []];
@@ -81,10 +85,16 @@ final class PublicEnquiryService
 
         $type = self::TYPES[$kind] ?? $values['topic'];   // the topic was checked against EnquiryValidator::TOPICS
         $label = ['contact' => 'Vehicle enquiry', 'reserve' => 'Reservation request', 'general' => 'Contact page enquiry'][$kind];
-        Transaction::run($this->pdo, function () use ($vehicleId, $type, $label, $values, $ip, $userAgent): void {
-            $id = $this->enquiries->insert($vehicleId, $type, $values);
+        $id = Transaction::run($this->pdo, function () use ($vehicleId, $type, $label, $values, $ip, $userAgent, $customerId): int {
+            $id = $this->enquiries->insert($vehicleId, $type, $values, $customerId);
             $this->audit->record('ENQUIRY_SUBMITTED', null, 'enquiry', $id, $label, $ip, $userAgent);
+
+            return $id;
         });
+        // Outside the transaction, after the commit: the alert can neither undo nor repeat the saved enquiry.
+        if ($this->alerts !== null && !$this->pdo->inTransaction()) {
+            $this->alerts->notify($id, $label, $vehicleId === null ? null : $vehicleTitle, $values, $ip, $userAgent);
+        }
 
         return ['status' => 'sent', 'values' => [], 'errors' => []];
     }

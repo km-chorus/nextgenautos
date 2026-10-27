@@ -24,10 +24,10 @@ class AssistantData
         return $this->once('vehicles', static fn (): array => PublicVehicleService::create()->search([], 48)['cards']);
     }
 
-    /** @return list<array<string,mixed>>|null published part cards (PublicPartService), newest first */
+    /** @return list<array<string,mixed>>|null every published part card (PublicPartService::forAssistant), newest first */
     public function parts(): ?array
     {
-        return $this->once('parts', static fn (): array => PublicPartService::create()->homepage()['cards']);
+        return $this->once('parts', static fn (): array => PublicPartService::create()->forAssistant());
     }
 
     /** @return list<string>|null names of the active brands */
@@ -46,7 +46,7 @@ class AssistantData
 
             return [
                 'phones'   => $service->phones(),
-                'whatsapp' => $digits === null ? null : CompanyContactService::whatsappLink($digits, 'Hello, I have a question for Amponsah Autos.'),
+                'whatsapp' => $digits === null ? null : CompanyContactService::whatsappLink($digits, 'Hello, I have a question for Next Gen Autos and Parts.'),
                 'email'    => $details['email'],
                 'hours'    => $details['hours'],
             ];

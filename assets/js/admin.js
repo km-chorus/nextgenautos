@@ -306,6 +306,16 @@
         });
     }
 
+    /* Spec 23: the vehicle form's damage fields are shown only for an accident vehicle (the server ignores them otherwise). */
+    function initAccidentToggle() {
+        var toggle = document.querySelector("[data-accident-toggle]");
+        var details = document.querySelector("[data-accident-details]");
+        if (!toggle || !details) { return; }
+        var sync = function () { details.hidden = !toggle.checked; };
+        toggle.addEventListener("change", sync);
+        sync();
+    }
+
     ready(function () {
         initNavigation();
         initPasswordToggles();
@@ -317,5 +327,6 @@
         initNoticeFocus();
         initSlugForm();
         initLoadingDemo();
+        initAccidentToggle();
     });
 })();

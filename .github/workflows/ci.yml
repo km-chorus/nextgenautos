@@ -1,0 +1,75 @@
+# Continuous regression tests (QA audit 2026-10-27).
+# Runs on every push and pull request: dependency vulnerability check, PHP syntax check of every file, and every test
+# suite against a THROWAWAY MySQL database built from database/schema.sql + seed.sql with synthetic fixtures.
+# It never touches production: no production secrets exist here, no email is sent (no mail credentials are set, so
+# the email service reports itself as not configured), and the database container is destroyed after the run.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: ci-only-not-a-secret
+          MYSQL_DATABASE: test_nextgen
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -pci-only-not-a-secret"
+          --health-interval=5s --health-timeout=5s --health-retries=30
+
+    env:
+      APP_ENV: development
+      APP_URL: http://localhost
+      DB_HOST: 127.0.0.1
+      DB_PORT: "3306"
+      DB_NAME: test_nextgen
+      DB_USER: root
+      DB_PASSWORD: ci-only-not-a-secret
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: gd, pdo_mysql, fileinfo, sodium, mbstring, curl, openssl
+          tools: composer
+          coverage: none
+
+      - name: Install dependencies (from composer.lock)
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Known vulnerabilities in dependencies
+        run: composer audit --locked
+
+      - name: Test application key (generated for this run only)
+        run: php database/generate_app_key.php >> "$GITHUB_ENV"
+
+      - name: Build the throwaway test database
+        run: |
+          mysql -h 127.0.0.1 -uroot -p"$DB_PASSWORD" "$DB_NAME" < database/schema.sql
+          mysql -h 127.0.0.1 -uroot -p"$DB_PASSWORD" "$DB_NAME" < database/seed.sql
+
+      - name: Fresh-install check (schema + seed only, before any fixture)
+        run: php database/tests/db_test.php --fresh
+
+      - name: Synthetic fixtures (one test administrator)
+        run: php database/tests/fixtures.php
+
+      - name: Writable folders the tests use
+        run: mkdir -p uploads/vehicles uploads/team uploads/parts storage/password_resets
+
+      - name: Syntax check and every test suite
+        run: php database/tests/run_all.php

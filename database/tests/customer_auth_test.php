@@ -35,7 +35,7 @@ final class FakeSession extends CustomerSessionService
     public ?int $customerId = null;
     public ?array $google = null;
 
-    public function establish(int $customerId): void { $this->customerId = $customerId; }
+    public function establish(int $customerId, string $welcome = 'back'): void { $this->customerId = $customerId; }
     public function destroy(): void { $this->customerId = null; }
     public function currentCustomerId(): ?int { return $this->customerId; }
     public function beginGoogle(string $state, string $nonce): void { $this->google = ['state' => $state, 'nonce' => $nonce]; }

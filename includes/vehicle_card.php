@@ -31,12 +31,16 @@ $hasGallery = $v['image'] !== null && $v['gallery'] !== [];
                     <button class="vehicle-card__nav vehicle-card__nav--next" type="button" data-gallery-next aria-label="Next photo of <?= e($v['title']) ?>" hidden><?= public_icon('chevron-right') ?></button>
                     <p class="vehicle-card__count" data-gallery-count aria-hidden="true" hidden>1 / <?= count($v['gallery']) + 1 ?></p>
 <?php endif; ?>
+<?php $favSlug = (string) $v['slug']; $favTitle = (string) $v['title']; $favVariant = 'card'; require __DIR__ . '/favourite_button.php'; ?>
+<?php if (!empty($v['accident'])): ?>
+                    <p class="vehicle-card__damage">Accident<span class="vehicle-card__damage-more">-damaged</span></p>
+<?php endif; ?>
                     <p class="vehicle-card__status<?= $v['reserved'] ? ' vehicle-card__status--reserved' : '' ?>"><span class="sr-only">Availability: </span><?= e($v['status']) ?></p>
                 </div>
                 <div class="vehicle-card__body">
                     <p class="vehicle-card__meta"><?= e($v['year']) ?> · <?= e($v['brand']) ?></p>
                     <div class="vehicle-card__head">
-                        <h3 class="vehicle-card__title"><a class="vehicle-card__open" href="<?= e($v['url']) ?>"><?= e($v['name']) ?><span class="sr-only">, <?= e($v['title']) ?>: view full details</span></a></h3>
+                        <h3 class="vehicle-card__title"><a class="vehicle-card__open" href="<?= e($v['url']) ?>"><?= e($v['name']) ?><span class="sr-only">, <?= e($v['title']) ?><?= !empty($v['accident']) ? ', accident-damaged' : '' ?>: view full details</span></a></h3>
                         <p class="vehicle-card__price"><?= e($v['price']) ?><?php if ($v['duty']): ?><span class="vehicle-card__duty">Duty included</span><?php endif; ?></p>
                     </div>
 <?php if ($v['specs'] !== []): ?>

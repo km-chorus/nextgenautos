@@ -35,7 +35,7 @@
 .brand-item__logo img { display: block; width: 104px; max-width: 100%; height: 56px; object-fit: contain; }
 .brand-item__name { color: var(--muted); font-size: 0.875rem; font-weight: 500; line-height: 1.2; text-align: center; }
 .brand-item:hover .brand-item__name { color: var(--ink); }
-.brand-item__text { font-weight: 600; text-align: center; }
+.brand-item__text { font-weight: 500; text-align: center; }
 
 .brand-strip__arrow {
     display: none; align-items: center; justify-content: center;

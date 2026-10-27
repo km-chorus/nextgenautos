@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 /** Development-only component library (route exists only when APP_ENV=development). */
 ?>
-<?= public_page_header('Component library', 'Development only', 'Every shared public component in one place. This page does not exist in production.') ?>
+<?= public_page_header('Component library') ?>
 <div class="container section">
 
     <section class="section-block">
@@ -12,7 +12,7 @@ declare(strict_types=1);
         <h1 class="demo-h">Heading one</h1>
         <h2 class="demo-h">Heading two</h2>
         <h3>Heading three</h3>
-        <p>Body text in Nunito. <a href="/styleguide/">A text link</a> is underlined and keeps its colour contrast.</p>
+        <p>Body text in Manrope. <a href="/styleguide/">A text link</a> is underlined and keeps its colour contrast.</p>
         <p class="muted">Secondary text uses the muted colour.</p>
     </section>
 

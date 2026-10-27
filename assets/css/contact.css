@@ -5,25 +5,25 @@
 .contact__details, .contact__form { min-width: 0; padding: var(--s5) var(--s4); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); }
 .contact__form { scroll-margin-top: calc(var(--header-h) + var(--s4)); }
 .contact__heading { margin-bottom: var(--s4); }
-.contact__subheading { margin: var(--s5) 0 var(--s3); font-size: 0.8125rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.contact__subheading { margin: var(--s5) 0 var(--s3); font-size: 0.8125rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
 .contact__soon { margin: 0; color: var(--muted); }
 
-.contact__whatsapp { width: 100%; min-height: 50px; background: var(--ink); border-color: var(--ink); color: #fff; font-weight: 600; }
+.contact__whatsapp { width: 100%; min-height: 50px; background: var(--ink); border-color: var(--ink); color: #fff; font-weight: 500; }
 .contact__whatsapp:hover { background: var(--ink-dark); border-color: var(--ink-dark); color: #fff; }
 .contact__whatsapp .icon { width: 20px; height: 20px; }
 
 .contact__list { margin: var(--s4) 0 0; }
 .contact__item { display: grid; gap: 2px; padding: var(--s3) 0; border-bottom: 1px solid var(--line); }
 .contact__item:first-child { border-top: 1px solid var(--line); }
-.contact__item dt { display: inline-flex; align-items: center; gap: var(--s2); color: var(--muted); font-size: 0.8125rem; font-weight: 600; }
+.contact__item dt { display: inline-flex; align-items: center; gap: var(--s2); color: var(--muted); font-size: 0.8125rem; font-weight: 500; }
 .contact__item dt .icon { width: 17px; height: 17px; color: var(--accent); }
-.contact__item dd { margin: 0; padding-left: calc(17px + var(--s2)); font-weight: 600; overflow-wrap: anywhere; }
+.contact__item dd { margin: 0; padding-left: calc(17px + var(--s2)); font-weight: 500; overflow-wrap: anywhere; }
 .contact__item dd a { color: var(--ink); }
 .contact__item dd a:hover { color: var(--accent); }
 .contact__hours { font-weight: 400 !important; line-height: 1.7; }
 
 .contact__socials { display: flex; flex-wrap: wrap; gap: var(--s2); }
-.contact__socials a { display: inline-flex; align-items: center; gap: var(--s2); min-height: 44px; padding: 0 var(--s3); color: var(--ink); font-size: 0.875rem; font-weight: 600; text-decoration: none; border: 1px solid var(--line-strong); border-radius: var(--radius); }
+.contact__socials a { display: inline-flex; align-items: center; gap: var(--s2); min-height: 44px; padding: 0 var(--s3); color: var(--ink); font-size: 0.875rem; font-weight: 500; text-decoration: none; border: 1px solid var(--line-strong); border-radius: var(--radius); }
 .contact__socials a:hover { border-color: var(--ink); color: var(--ink); }
 .contact__socials .icon { width: 18px; height: 18px; color: var(--accent); }
 
@@ -40,3 +40,28 @@
     .contact__details { position: sticky; top: calc(var(--header-h) + var(--s4)); }
 }
 @media (max-width: 29.99em) { .contact__fields .btn { justify-self: stretch; } }
+
+.contact-location { padding-bottom: var(--s8); }   /* its own block below the details and the form (the details panel is sticky) */
+.contact:has(+ .contact-location) { padding-bottom: var(--s6); }
+/* Office location (2026-10-23): full-width white card below the details and the form; address with a map pin, the Google
+   Map shows straight away. Map below the address on phones, beside it on wide screens. */
+.contact__location { display: grid; gap: var(--s5); padding: var(--s5); background: #fff; border-radius: var(--radius-lg); box-shadow: var(--card-shadow); }
+.contact__location-info { display: flex; align-items: flex-start; gap: var(--s4); }
+.contact__location-icon { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 46px; height: 46px; color: #fff; border-radius: 12px; background: linear-gradient(145deg, #e2453f 0%, var(--accent) 60%, var(--accent-dark) 100%); box-shadow: 0 6px 14px rgba(212, 42, 37, 0.22); }
+.contact__location-icon .icon { width: 22px; height: 22px; }
+.contact__address { margin: 0; font-style: normal; font-size: 1.0625rem; font-weight: 500; line-height: 1.5; overflow-wrap: anywhere; }
+.contact__map { position: relative; min-height: 16rem; overflow: hidden; background: var(--tint); border-radius: var(--radius); }
+.contact__map iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+@media (min-width: 40em) { .contact__location { padding: var(--s6); } .contact__map { min-height: 20rem; } }
+@media (min-width: 62em) { .contact__location { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: var(--s6); align-items: stretch; } }
+
+/* The Ghana number is WhatsApp only (2026-10-23): WhatsApp colours (#25D366 tile; darker green text for contrast on white) */
+.contact__item--whatsapp dt { color: #075e54; font-weight: 500; }
+.contact__wa-icon { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; color: #fff; background: #25d366; border-radius: 50%; }
+.contact__wa-icon .icon { width: 14px !important; height: 14px !important; color: #fff !important; }
+.contact__item--whatsapp dd a { color: #075e54; font-weight: 600; text-decoration-color: #25d366; }
+.contact__item--whatsapp dd a:hover { color: #128c7e; }
+.contact__wa-note { display: block; margin-top: 2px; color: #128c7e; font-size: 0.8125rem; font-weight: 500; }
+/* The "Chat with us on WhatsApp" button (shown when a WhatsApp number is set in Settings) uses the same colours */
+.contact__whatsapp { background: #25d366; border-color: #25d366; color: #073b33; }
+.contact__whatsapp:hover { background: #1ebe5a; border-color: #1ebe5a; color: #073b33; }

@@ -144,7 +144,7 @@ require dirname(__DIR__) . '/includes/admin/shell_start.php';
                                     <td class="cell-primary">
                                         <div class="cell-text">
                                             <p class="cell-title"><a href="vehicle-view.php?id=<?= $id ?>"><?= e($label) ?></a></p>
-                                            <p class="cell-sub"><?= (int) $vehicle['is_published'] === 1 ? 'Published on website' : 'Not published' ?></p>
+                                            <p class="cell-sub"><?= (int) $vehicle['is_published'] === 1 ? 'Published on website' : 'Not published' ?><?= (int) ($vehicle['is_accident'] ?? 0) === 1 ? ' · Accident vehicle' : '' ?></p>
                                         </div>
                                     </td>
                                     <td data-label="Brand"><?= e((string) $vehicle['brand_name']) ?></td>

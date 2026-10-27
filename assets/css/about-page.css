@@ -1,0 +1,90 @@
+/* About Us page (2026-10-26): intro with fact cards, the buying steps as a timeline on the grey card area, the team as
+   portrait cards, and a dark closing band. Same language as the homepage About section and the Plan-your-import cards:
+   white cards, soft shadows, red gradient icon tiles, light Manrope weights (max 600). No JavaScript. */
+
+.ab-eyebrow { display: flex; align-items: center; gap: var(--s3); margin: 0 0 var(--s3); color: var(--accent); font-size: 0.8125rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; }
+.ab-eyebrow::before { content: ""; width: 2rem; height: 2px; background: var(--accent); border-radius: 1px; }
+.ab-title { margin: 0 0 var(--s4); font-size: clamp(1.625rem, 1.3rem + 1.3vw, 2.375rem); font-weight: 600; line-height: 1.18; letter-spacing: -0.01em; text-wrap: balance; }
+.ab-head { max-width: 44rem; margin: 0 0 var(--s6); }
+.ab-head__text { margin: 0; color: var(--muted); font-size: 1.0625rem; }
+
+/* ---- Intro */
+.ab-intro { padding-block: 3.5rem; }
+.ab-intro__grid { display: grid; gap: var(--s6); align-items: center; }
+.ab-lead { margin: 0 0 var(--s4); color: var(--ink); font-size: 1.125rem; line-height: 1.7; }
+.ab-text { margin: 0; max-width: 36rem; color: var(--muted); font-size: 1rem; line-height: 1.7; }
+.ab-facts { display: grid; gap: var(--s3); margin: 0; padding: 0; list-style: none; }
+.ab-fact { padding: var(--s5); background: #fff linear-gradient(160deg, #fff 0%, #fff 55%, #f6f7f9 100%); border: 1px solid var(--line); border-radius: 16px; }
+.ab-fact__icon { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin-bottom: var(--s3); color: #fff; border-radius: 12px;
+    background: linear-gradient(145deg, #e2453f 0%, var(--accent) 60%, var(--accent-dark) 100%); box-shadow: 0 6px 14px rgba(212, 42, 37, 0.2); }
+.ab-fact:nth-child(even) .ab-fact__icon { background: linear-gradient(145deg, #3a3f47 0%, var(--ink) 60%, var(--ink-dark) 100%); box-shadow: 0 6px 14px rgba(43, 47, 53, 0.2); }
+.ab-fact__icon .icon { width: 22px; height: 22px; stroke-width: 1.7; }
+.ab-fact__title { margin: 0 0 var(--s1); font-size: 1rem; font-weight: 600; line-height: 1.3; }
+.ab-fact__text { margin: 0; color: var(--muted); font-size: 0.9375rem; line-height: 1.55; overflow-wrap: anywhere; }
+
+/* ---- Buying steps */
+.ab-steps { padding-block: 3.5rem; background: var(--card-area); }
+.ab-timeline { display: grid; gap: var(--s3); margin: 0; padding: 0; list-style: none; counter-reset: step; }
+.ab-step { position: relative; padding: var(--s5); background: #fff; border-radius: 16px; box-shadow: var(--card-shadow); }
+.ab-step__num { display: block; margin-bottom: var(--s3); color: var(--accent); font-size: 0.875rem; font-weight: 600; letter-spacing: 0.08em; font-variant-numeric: tabular-nums; }
+.ab-step__title { margin: 0 0 var(--s2); font-size: 1.0625rem; font-weight: 600; line-height: 1.3; }
+.ab-step__text { margin: 0; color: var(--muted); font-size: 0.9375rem; line-height: 1.6; }
+
+/* ---- Team */
+.ab-team { padding-block: 3.5rem; }
+.ab-team__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s3); margin: 0; padding: 0; list-style: none; }   /* two per row on phones, like the vehicle cards */
+
+/* ---- Closing band */
+.ab-cta { padding-block: 0 4rem; }
+.ab-cta__box { display: grid; gap: var(--s5); padding: var(--s6) var(--s5); color: #fff; border-radius: 20px;
+    background: radial-gradient(circle at 100% 0%, rgba(212, 42, 37, 0.35) 0%, rgba(212, 42, 37, 0) 45%), linear-gradient(150deg, #3a3f47 0%, var(--ink) 55%, var(--ink-dark) 100%); }
+.ab-cta__title { margin: 0 0 var(--s2); color: #fff; font-size: clamp(1.375rem, 1.15rem + 0.9vw, 1.875rem); font-weight: 600; line-height: 1.2; }
+.ab-cta__text { margin: 0; color: #c9cdd3; font-size: 1rem; }
+.ab-cta__actions { display: flex; flex-wrap: wrap; gap: var(--s3); }
+.ab-cta__btn { gap: var(--s2); min-height: 50px; padding-inline: var(--s6); }
+.ab-cta__btn .icon { width: 18px; height: 18px; }
+.ab-cta__btn--ghost { color: #fff; background: transparent; border: 1px solid rgba(255, 255, 255, 0.55); }
+.ab-cta__btn--ghost:hover { color: var(--ink); background: #fff; border-color: #fff; }
+.ab-cta :focus-visible { outline-color: #fff; }
+
+@media (min-width: 40em) {
+    .ab-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .ab-timeline { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 48em) {
+    .ab-intro, .ab-steps, .ab-team { padding-block: 5rem; }
+    .ab-cta { padding-bottom: 5rem; }
+    .ab-cta__box { padding: var(--s7) var(--s7); }
+}
+@media (min-width: 64em) {
+    .ab-intro__grid { grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: clamp(3rem, 6vw, 6rem); }
+    .ab-timeline { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--s4); }
+    /* a thin line joins the five steps */
+    .ab-step:not(:last-child)::after { content: ""; position: absolute; top: calc(var(--s5) + 0.55rem); right: calc(var(--s4) * -1); width: var(--s4); height: 2px; background: var(--line-strong); }
+    .ab-cta__box { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+}
+@media (max-width: 29.99em) {
+    .ab-cta__btn { flex: 1 1 100%; justify-content: center; }
+}
+@media (min-width: 40em) { .ab-team__grid { grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: var(--s5); } }
+
+/* Team cards (owner 2026-10-26): the photo only; department, name and role on a dark gradient at the bottom; the photo zooms
+   in slowly on hover or keyboard focus. Portrait cards, two per row on phones. */
+.ab-member { position: relative; overflow: hidden; aspect-ratio: 4 / 5; margin: 0; background: var(--ink); border-radius: 18px; box-shadow: var(--card-shadow); isolation: isolate; }
+.ab-member__img { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; object-fit: cover; object-position: center 22%; transform: scale(1.001); transition: transform 0.6s cubic-bezier(0.2, 0.7, 0.2, 1); }
+.ab-member::after { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+    background: linear-gradient(180deg, rgba(20, 22, 26, 0) 45%, rgba(20, 22, 26, 0.55) 70%, rgba(20, 22, 26, 0.92) 100%); }
+.ab-member__overlay { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; padding: var(--s5); color: #fff; }
+.ab-member__dept { display: inline-block; margin: 0 0 var(--s2); padding: 2px 10px; color: #fff; font-size: 0.6875rem; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; background: var(--accent); border-radius: 999px; }
+.ab-member__name { margin: 0; color: #fff; font-size: 1.125rem; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
+.ab-member__role { margin: 2px 0 0; color: rgba(255, 255, 255, 0.82); font-size: 0.9375rem; }
+@media (hover: hover) { .ab-member:hover .ab-member__img { transform: scale(1.08); } }
+.ab-member:focus-within .ab-member__img { transform: scale(1.08); }
+@media (max-width: 29.99em) {
+    .ab-member { border-radius: 14px; }
+    .ab-member__overlay { padding: var(--s3); }
+    .ab-member__dept { padding: 1px 8px; font-size: 0.5625rem; }
+    .ab-member__name { font-size: 0.9375rem; }
+    .ab-member__role { font-size: 0.8125rem; }
+}
+@media (prefers-reduced-motion: reduce) { .ab-member__img { transition: none; } .ab-member:hover .ab-member__img { transform: none; } }

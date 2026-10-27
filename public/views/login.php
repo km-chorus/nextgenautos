@@ -11,16 +11,13 @@ declare(strict_types=1);
 $values = $data['values'] ?? [];
 $errors = $data['errors'] ?? [];
 $authTitle = 'Sign in';
-$authLead = 'Access your Mr Amponsah Autos account.';
 $authTrust = 'Your password is stored securely and never in plain text. If you use Google, we only receive your name and email address.';
 require dirname(__DIR__, 2) . '/includes/auth_start.php';
 ?>
-        <?php if (!empty($data['notice'])): ?>
-            <?= public_alert((string) $data['notice']['type'], (string) $data['notice']['text']) ?>
-        <?php endif; ?>
-        <?php if (!empty($data['message'])): ?>
-            <?= public_alert('error', (string) $data['message']) ?>
-        <?php endif; ?>
+<?php
+if (!empty($data['notice'])) { public_toast($page, (string) $data['notice']['type'], (string) $data['notice']['text']); }
+if (!empty($data['message'])) { public_toast($page, 'error', (string) $data['message']); }
+?>
 
         <?php if (empty($data['unavailable'])): ?>
             <?php if (!empty($data['google'])): ?>
@@ -46,6 +43,8 @@ require dirname(__DIR__, 2) . '/includes/auth_start.php';
                     </div>
                     <?php if (isset($errors['password'])): ?><p class="auth-field__error" id="password-error"><?= e($errors['password']) ?></p><?php endif; ?>
                 </div>
+
+                <p class="auth-forgot"><a href="/forgot-password/">Forgot your password?</a></p>
 
                 <button type="submit" class="auth-submit" data-auth-submit data-busy-label="Signing in">Sign in</button>
             </form>

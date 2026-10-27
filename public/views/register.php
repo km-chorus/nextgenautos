@@ -9,13 +9,10 @@ declare(strict_types=1);
 $values = $data['values'] ?? [];
 $errors = $data['errors'] ?? [];
 $authTitle = 'Create an account';
-$authLead = 'Create your Mr Amponsah Autos account.';
 $authTrust = 'Your password is stored securely and never in plain text. If you use Google, we only receive your name and email address.';
 require dirname(__DIR__, 2) . '/includes/auth_start.php';
 ?>
-        <?php if (!empty($data['message'])): ?>
-            <?= public_alert('error', (string) $data['message']) ?>
-        <?php endif; ?>
+<?php if (!empty($data['message'])) { public_toast($page, 'error', (string) $data['message']); } ?>
 
         <?php if (empty($data['unavailable'])): ?>
             <?php if (!empty($data['google'])): ?>

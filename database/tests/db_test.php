@@ -5,9 +5,12 @@ declare(strict_types=1);
 /**
  * Database foundation tests (spec 01_spec_database.md, section 30).
  *
- * CLI only:  php database/tests/db_test.php
- * Requires:  schema.sql + seed.sql already loaded into the database named in
- *            .env / environment (use a DEVELOPMENT database, never production).
+ * CLI only:  php database/tests/db_test.php            structure, constraints and settings of any database
+ *            php database/tests/db_test.php --fresh    also: a NEW install holds only the seed data (run right after
+ *                                                       loading schema.sql + seed.sql, before anyone uses the site)
+ * Requires:  schema.sql + seed.sql (and the migrations) loaded into the database named in .env / environment.
+ *            Use a development database; the data checks never change anything (rolled-back transactions).
+ * Reworked 2026-10-26 for deployment: a working database legitimately holds vehicles, customers and parts.
  *
  * Every data-changing test runs inside a transaction that is rolled back, so
  * the database is left exactly as it was found.
@@ -22,6 +25,7 @@ require_once dirname(__DIR__, 2) . '/app/config/database.php';
 
 $passed = 0;
 $failed = 0;
+$fresh = in_array('--fresh', $argv ?? [], true);
 
 function check(string $label, bool $ok, string $detail = ''): void
 {
@@ -128,11 +132,18 @@ ini_set('error_log', $prevLog === false ? '' : $prevLog);
 
 check('session time zone is UTC', run($pdo, 'SELECT @@session.time_zone')->fetchColumn() === '+00:00');
 
+$startCounts = ['vehicles' => (int) run($pdo, 'SELECT COUNT(*) FROM vehicles')->fetchColumn(), 'brands' => (int) run($pdo, 'SELECT COUNT(*) FROM brands')->fetchColumn(),
+    'settings' => (int) run($pdo, 'SELECT COUNT(*) FROM settings')->fetchColumn()];
+
 // ------------------------------------------------------------------- Schema
 echo "\nSchema\n";
 $tables = ['admin_users', 'brands', 'vehicles', 'vehicle_images', 'shipments', 'enquiries',
            'team_members', 'site_content', 'settings', 'audit_logs',
-           'admin_recovery_codes', 'password_reset_tokens']; // the last two: migration 001 (2FA, password reset)
+           'admin_recovery_codes', 'password_reset_tokens',                // migration 001 (2FA, password reset)
+           'customers',                                                     // migrations 003, 004, 009, 011
+           'part_categories', 'parts', 'part_fitments', 'part_images',     // migration 006 (parts catalogue)
+           'part_numbers',                                                  // migration 012 (spec 27)
+           'customer_favourites'];                                          // migration 009 (customer dashboard)
 $dbName = $config['name'];
 foreach ($tables as $t) {
     $row = run(
@@ -188,6 +199,12 @@ $hashLen = run(
 )->fetchColumn();
 check('password_hash column is at least 255 chars', (int) $hashLen >= 255);
 $tfCols = run($pdo, "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'admin_users'", [$dbName])->fetchAll(PDO::FETCH_COLUMN);
+$col = static fn (string $table): array => run($pdo, 'SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?', [$dbName, $table])->fetchAll(PDO::FETCH_COLUMN);
+check('migrations 007-011 are applied (vehicle photo type, shipment customer, dashboard, accident vehicles, password change time)',
+    in_array('photo_type', $col('vehicle_images'), true) && in_array('customer_id', $col('shipments'), true) && in_array('customer_id', $col('enquiries'), true)
+    && array_diff(['email_verified_at', 'password_changed_at'], $col('customers')) === []
+    && array_diff(['is_accident', 'damage_description', 'damage_areas', 'runs_drives', 'airbags_deployed', 'title_status'], $col('vehicles')) === []);
+check('password reset links and codes are not stored in the database (spec 24: file cache only)', !in_array('customer_password_resets', $extra, true));
 check('admin_users has the two-factor and password_changed_at columns', array_diff(['two_factor_enabled', 'two_factor_secret_encrypted', 'two_factor_confirmed_at', 'two_factor_last_step', 'password_changed_at'], $tfCols) === []);
 
 // ---------------------------------------------------------------- Seed data
@@ -195,10 +212,15 @@ echo "\nSeed data\n";
 $approved = ['Hyundai', 'Honda', 'Toyota', 'Mazda', 'Ford', 'Chevrolet', 'Dodge', 'Nissan',
              'Mercedes-Benz', 'BMW', 'Mitsubishi', 'GMC'];
 $names = run($pdo, 'SELECT name FROM brands ORDER BY display_order')->fetchAll(PDO::FETCH_COLUMN);
-check('exactly the 12 approved brands exist, in order', $names === $approved, implode(',', $names));
 check('no duplicate brands', count(array_unique($names)) === count($names));
-foreach (['vehicles', 'vehicle_images', 'shipments', 'enquiries', 'team_members', 'site_content', 'admin_recovery_codes', 'password_reset_tokens'] as $t) {
-    check("no seeded rows in $t", (int) run($pdo, "SELECT COUNT(*) FROM `$t`")->fetchColumn() === 0);
+if ($fresh) {
+    check('fresh install: exactly the 12 approved brands exist, in order', $names === $approved, implode(',', $names));
+    foreach (['vehicles', 'vehicle_images', 'shipments', 'enquiries', 'team_members', 'site_content', 'admin_recovery_codes', 'password_reset_tokens',
+                 'customers', 'customer_favourites', 'parts', 'part_fitments', 'part_images', 'part_numbers'] as $t) {
+        check("fresh install: no seeded rows in $t", (int) run($pdo, "SELECT COUNT(*) FROM `$t`")->fetchColumn() === 0);
+    }
+} else {
+    echo "  (skipped: the empty-database checks of a NEW install; run with --fresh right after installing)\n";
 }
 // admin_users and audit_logs fill up legitimately at runtime (real administrators, real security events),
 // so the check is on the seed FILE: it must never create administrators or log rows.
@@ -206,7 +228,12 @@ $seedSql = (string) file_get_contents(dirname(__DIR__) . '/seed.sql');
 check('seed.sql inserts nothing into admin_users or audit_logs (no default credentials, no fake events)',
     preg_match('/INSERTs+INTOs+`?(admin_users|audit_logs|admin_recovery_codes|password_reset_tokens)`?/i', $seedSql) !== 1);
 $settingKeys = run($pdo, 'SELECT setting_key FROM settings ORDER BY setting_key')->fetchAll(PDO::FETCH_COLUMN);
-check('settings contains only the two approved external URLs', $settingKeys === ['duty_calculator_url', 'tracking_provider_url'], implode(',', $settingKeys));
+require_once dirname(__DIR__, 2) . '/app/validation/ContactSettingsValidator.php';
+$allowedKeys = array_merge(['duty_calculator_url', 'tracking_provider_url', 'accident_vehicles_enabled'], array_keys(ContactSettingsValidator::FIELDS));
+check('settings hold only keys the application knows (no secrets, nothing unexpected)', array_diff($settingKeys, $allowedKeys) === [], implode(',', array_diff($settingKeys, $allowedKeys)));
+if ($fresh) {
+    check('fresh install: settings contain only the two approved external URLs', $settingKeys === ['duty_calculator_url', 'tracking_provider_url'], implode(',', $settingKeys));
+}
 
 // ------------------------------------------------- Relationships (success)
 echo "\nRelationships\n";
@@ -346,8 +373,9 @@ rejects($pdo, 'enquiry with empty message', fn (PDO $p) => run($p, "INSERT INTO 
 
 // -------------------------------------------------------------- Post-check
 echo "\nCleanup check\n";
-check('tests left no business data behind', (int) run($pdo, 'SELECT COUNT(*) FROM vehicles')->fetchColumn() === 0
-    && (int) run($pdo, 'SELECT COUNT(*) FROM brands')->fetchColumn() === 12);
+check('tests left the data exactly as found (vehicles, brands, settings)', (int) run($pdo, 'SELECT COUNT(*) FROM vehicles')->fetchColumn() === $startCounts['vehicles']
+    && (int) run($pdo, 'SELECT COUNT(*) FROM brands')->fetchColumn() === $startCounts['brands']
+    && (int) run($pdo, 'SELECT COUNT(*) FROM settings')->fetchColumn() === $startCounts['settings']);
 
 echo "\nResult: $passed passed, $failed failed\n";
 exit($failed === 0 ? 0 : 1);

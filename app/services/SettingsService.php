@@ -33,7 +33,7 @@ final class SettingsService
     /** @return array<string,string> every contact/social key => its stored value ('' when not set) */
     public function current(): array
     {
-        $stored = $this->settings->valuesIn(['contact', 'social']);
+        $stored = $this->settings->valuesIn(ContactSettingsValidator::CATEGORIES);
         $out = [];
         foreach (array_keys(ContactSettingsValidator::FIELDS) as $key) {
             $out[$key] = $stored[$key] ?? '';

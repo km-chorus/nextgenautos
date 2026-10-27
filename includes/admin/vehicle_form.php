@@ -53,6 +53,15 @@ $v = static fn (string $key): string => (string) ($values[$key] ?? '');
 [$statInv, $statDesc, $statErr] = $field('availability_status');
 [, , $pubErr] = $field('is_published');
 [$slugInv, $slugDesc, $slugErr] = $field('slug');
+[, , $accErr] = $field('is_accident');
+[$dmgInv, $dmgDesc, $dmgErr] = $field('damage_description');
+[, , $areaErr] = $field('damage_areas');
+[$runInv, $runDesc, $runErr] = $field('runs_drives', false);
+[$bagInv, $bagDesc, $bagErr] = $field('airbags_deployed', false);
+[$titleInv, $titleDesc, $titleErr] = $field('title_status');
+$isAccident = $v('is_accident') === '1';
+$areas = array_filter(preg_split('/[,
+]/', $v('damage_areas')) ?: []);
 $descriptionMax = VehicleValidator::DESCRIPTION_MAX;
 ?>
 <?php if (!empty($formMessage)): ?>
@@ -210,6 +219,58 @@ $descriptionMax = VehicleValidator::DESCRIPTION_MAX;
             <textarea class="textarea" id="vehicle-shipping-info" name="shipping_info" rows="4" maxlength="<?= VehicleValidator::SHIPPING_MAX ?>"<?= $shipInv . $shipDesc ?>><?= e($v('shipping_info')) ?></textarea>
             <p class="hint" id="vehicle-shipping-info-hint">Origin, notes or other approved shipping details. Container numbers and tracking are recorded in shipments, not here.</p>
             <?= $shipErr ?>
+        </div>
+    </fieldset>
+
+    <!-- Accident damage (spec 23) -->
+    <fieldset class="card form-section vehicle-form__section" aria-describedby="vehicle-is-accident-hint vehicle-is-accident-error">
+        <legend class="card__title">Accident damage</legend>
+        <label class="check"><input type="checkbox" name="is_accident" value="1" data-accident-toggle aria-controls="vehicle-accident-details"<?= $isAccident ? ' checked' : '' ?>><span class="check__text">This is an accident-damaged vehicle</span></label>
+        <p class="hint" id="vehicle-is-accident-hint">Accident vehicles are never listed with the normal vehicles. They appear only on the Accident Vehicles page (when it is switched on in Settings), always labelled "Accident-damaged". To publish one, add at least one photo of type Damage on Manage Images.</p>
+        <?= $accErr ?>
+        <div class="stack" id="vehicle-accident-details" data-accident-details>
+            <div class="field">
+                <label class="label" for="vehicle-damage-description">Damage description <span aria-hidden="true">*</span></label>
+                <textarea class="textarea" id="vehicle-damage-description" name="damage_description" rows="5" maxlength="<?= VehicleValidator::DAMAGE_MAX ?>"<?= $dmgInv . $dmgDesc ?>><?= e($v('damage_description')) ?></textarea>
+                <p class="hint" id="vehicle-damage-description-hint">What happened and what is damaged, in plain words. Only what is true and known: buyers rely on it.</p>
+                <?= $dmgErr ?>
+            </div>
+            <fieldset class="form-section field" aria-describedby="vehicle-damage-areas-hint vehicle-damage-areas-error">
+                <legend class="label">Damaged areas <span aria-hidden="true">*</span></legend>
+                <div class="cluster">
+                    <?php foreach (VehicleValidator::DAMAGE_AREAS as $key => $areaLabel): ?>
+                        <label class="check"><input type="checkbox" name="damage_areas[]" value="<?= e($key) ?>"<?= in_array($key, $areas, true) ? ' checked' : '' ?>><span class="check__text"><?= e($areaLabel) ?></span></label>
+                    <?php endforeach; ?>
+                </div>
+                <p class="hint" id="vehicle-damage-areas-hint">Tick every area with damage.</p>
+                <?= $areaErr ?>
+            </fieldset>
+            <div class="form-row">
+                <?php foreach ([['runs_drives', 'Runs and drives', VehicleValidator::RUNS_DRIVES, $runInv . $runDesc, $runErr],
+                    ['airbags_deployed', 'Airbags deployed', VehicleValidator::AIRBAGS, $bagInv . $bagDesc, $bagErr]] as [$name, $fieldLabel, $choices, $attrs, $err]): ?>
+                <div class="field">
+                    <label class="label" for="vehicle-<?= e(str_replace('_', '-', $name)) ?>"><?= e($fieldLabel) ?> <span aria-hidden="true">*</span></label>
+                    <select class="select" id="vehicle-<?= e(str_replace('_', '-', $name)) ?>" name="<?= e($name) ?>"<?= $attrs ?>>
+                        <option value="">Choose</option>
+                        <?php foreach ($choices as $key => $text): ?>
+                            <option value="<?= e($key) ?>"<?= $v($name) === $key ? ' selected' : '' ?>><?= e($text) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <?= $err ?>
+                </div>
+                <?php endforeach; ?>
+                <div class="field">
+                    <label class="label" for="vehicle-title-status">Title status <span aria-hidden="true">*</span></label>
+                    <select class="select" id="vehicle-title-status" name="title_status"<?= $titleInv . $titleDesc ?>>
+                        <option value="">Choose</option>
+                        <?php foreach (VehicleValidator::TITLE_STATUSES as $key => $text): ?>
+                            <option value="<?= e($key) ?>"<?= $v('title_status') === $key ? ' selected' : '' ?>><?= e($text) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <p class="hint" id="vehicle-title-status-hint">The vehicle's Canadian title (ownership) status.</p>
+                    <?= $titleErr ?>
+                </div>
+            </div>
         </div>
     </fieldset>
 

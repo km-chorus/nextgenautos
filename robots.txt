@@ -1,0 +1,7 @@
+# Next Gen Autos and Parts
+# Every public page, image, stylesheet and script may be crawled. Private pages (sign-in, account, tracking, admin) are
+# protected by the server itself and tell search engines not to index them; this file is not a security control.
+User-agent: *
+Allow: /
+
+Sitemap: https://nextgenautosandparts.com/sitemap.xml

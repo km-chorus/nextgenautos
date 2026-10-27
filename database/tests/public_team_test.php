@@ -45,6 +45,7 @@ $add = static function (string $name, array $o = []) use ($pdo): void {
 };
 
 $pdo->beginTransaction();
+$pdo->exec("UPDATE team_members SET status = 'inactive' WHERE name NOT LIKE 'TESTDATA%'");   // inside the rolled-back transaction: real members never push test members past the 12-member limit
 try {
     echo "Who is shown\n";
     $add('TESTDATA Active B', ['order' => 30]);
@@ -123,6 +124,26 @@ try {
     rmdir($root);
 }
 $check('rolled back: no test member remains', (int) $pdo->query("SELECT COUNT(*) FROM team_members WHERE name LIKE 'TESTDATA%'")->fetchColumn() === 0);
+
+echo "\nAbout page and sections fed by the admin (owner rule 2026-10-26: hidden when nothing is uploaded)\n";
+require_once dirname(__DIR__, 2) . '/app/helpers/public_ui.php';
+$aboutMembers = PublicTeamService::create()->forAboutPage();
+$check('About page team: only members with an uploaded photo (the card is the photo)', array_filter($aboutMembers, static fn (array $m): bool => $m['photo'] === null) === []);
+$renderView = static function (string $file, array $vars): string {
+    extract($vars, EXTR_SKIP);
+    ob_start();
+    require $file;
+
+    return (string) ob_get_clean();
+};
+$root = dirname(__DIR__, 2);
+$aboutHtml = $renderView($root . '/public/views/about.php', ['data' => ['team' => [], 'steps' => [], 'address' => null], 'page' => []]);
+$check('About page without team members: no team section at all', !str_contains($aboutHtml, 'id="team"') && !str_contains($aboutHtml, 'Meet the team'));
+$check('About page without an office address: no "Our office" card', !str_contains($aboutHtml, 'Our office'));
+$check('Browse by Brand without brands: nothing at all (no "unavailable" box)', trim($renderView($root . '/includes/brand_strip.php', ['brands' => []])) === ''
+    && trim($renderView($root . '/includes/brand_strip.php', ['brands' => null])) === '');
+$check('Latest Vehicles without vehicles: nothing at all', trim($renderView($root . '/includes/latest_vehicles.php', ['latest' => [], 'vehiclesPath' => '/vehicles/'])) === '');
+$check('Latest Parts without parts: nothing at all', trim($renderView($root . '/includes/latest_parts.php', ['parts' => ['cards' => [], 'types' => [], 'makes' => [], 'type' => null, 'make' => null], 'whatsappDigits' => null])) === '');
 
 echo "\nResult: $passed passed, $failed failed\n";
 exit($failed > 0 ? 1 : 0);

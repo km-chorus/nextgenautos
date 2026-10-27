@@ -46,6 +46,7 @@ $url = ' maxlength="' . ContactSettingsValidator::MAX_URL . '" autocomplete="off
             <?= $input('whatsapp_number', 'tel', 'The number of your WhatsApp Business account. Customers are taken straight to a chat with it.', ' maxlength="30" autocomplete="off"') ?>
         </div>
         <?= $input('contact_email', 'email', 'Where customers can email you, for example info@yourcompany.com.', ' maxlength="255" autocomplete="off" autocapitalize="none" spellcheck="false"') ?>
+        <?= $input('office_address', 'textarea', 'The full address of the office, as on a letter (street, area, city, country). It is shown on the Contact page with a Google Map. Leave it empty to show no map.') ?>
         <?= $input('opening_hours', 'textarea', 'One line per day or group of days, for example "Mon - Fri: 8:00 - 17:00". Up to ' . ContactSettingsValidator::MAX_HOURS . ' characters.') ?>
     </section>
 
@@ -66,7 +67,36 @@ $url = ' maxlength="' . ContactSettingsValidator::MAX_URL . '" autocomplete="off
         </div>
     </section>
 
+    <section class="card" aria-labelledby="alerts-heading">
+        <h2 class="card__title" id="alerts-heading">Email alerts</h2>
+        <p class="hint">Not shown on the website. When a customer sends an enquiry or a reservation request, the details are emailed to this address; reply to that email to answer the customer directly. Leave it empty to send no alerts (enquiries are still saved).</p>
+        <?= $input('notification_email', 'email', 'A mailbox your team reads, for example sales@yourcompany.com.', ' maxlength="255" autocomplete="off" autocapitalize="none" spellcheck="false"') ?>
+    </section>
+
     <div class="cluster form-actions">
         <button type="submit" class="btn btn--primary" data-submit-button>Save settings</button>
     </div>
+</form>
+
+<?php /* Spec 23: the Accident Vehicles page switch (its own small form, so it never saves the contact details by accident). */ ?>
+<form method="post" action="settings.php" class="stack settings-form" novalidate data-single-submit>
+    <?= csrf_field() ?>
+    <input type="hidden" name="form" value="features">
+    <section class="card" aria-labelledby="accident-heading">
+        <h2 class="card__title" id="accident-heading">Accident vehicles page</h2>
+        <p class="hint">Accident-damaged vehicles are never shown with the normal vehicles. When this page is on, they are listed on their own
+            "Accident Vehicles" page with their damage details, and the menu links to it. Keep it off until you have confirmed with the
+            Ghana Revenue Authority or your customs broker that these vehicles may be imported (salvaged-vehicle rules, Act 1014).</p>
+        <fieldset class="form-section field" aria-describedby="accident-enabled-hint">
+            <legend class="label">Show the Accident Vehicles page on the website</legend>
+            <div class="cluster">
+                <label class="check"><input type="radio" name="accident_vehicles_enabled" value="1"<?= !empty($accidentEnabled) ? ' checked' : '' ?>><span class="check__text">On</span></label>
+                <label class="check"><input type="radio" name="accident_vehicles_enabled" value="0"<?= empty($accidentEnabled) ? ' checked' : '' ?>><span class="check__text">Off</span></label>
+            </div>
+            <p class="hint" id="accident-enabled-hint">Currently <strong><?= !empty($accidentEnabled) ? 'on: visible to visitors' : 'off: hidden from visitors' ?></strong>.</p>
+        </fieldset>
+        <div class="cluster form-actions">
+            <button type="submit" class="btn btn--secondary" data-submit-button>Save page setting</button>
+        </div>
+    </section>
 </form>

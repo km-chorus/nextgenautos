@@ -319,6 +319,7 @@ final class VehicleController
             'transmission' => '', 'fuel_type' => '', 'drive_type' => '', 'price' => '', 'currency' => VehicleValidator::DEFAULT_CURRENCY,
             'description' => '', 'key_features' => '', 'shipping_info' => '', 'duty_included' => '0',
             'availability_status' => 'available', 'is_published' => '0', 'slug' => '',
+            'is_accident' => '0', 'damage_description' => '', 'damage_areas' => '', 'runs_drives' => '', 'airbags_deployed' => '', 'title_status' => '',
         ];
     }
 
@@ -335,6 +336,9 @@ final class VehicleController
             if (is_string($post[$key] ?? null)) {
                 $values[$key] = $post[$key];
             }
+        }
+        if (is_array($post['damage_areas'] ?? null)) {               // spec 23: the ticked damaged areas (only known keys are kept)
+            $values['damage_areas'] = implode(',', array_intersect(array_keys(VehicleValidator::DAMAGE_AREAS), $post['damage_areas']));
         }
 
         return $values;
@@ -359,6 +363,9 @@ final class VehicleController
             'description' => $text('description'), 'key_features' => implode("\n", $vehicle['features'] ?? []),
             'shipping_info' => $text('shipping_info'), 'duty_included' => $text('duty_included'),
             'availability_status' => $text('availability_status'), 'is_published' => $text('is_published'), 'slug' => $text('slug'),
+            'is_accident' => $text('is_accident') === '1' ? '1' : '0', 'damage_description' => $text('damage_description'),
+            'damage_areas' => $text('damage_areas'), 'runs_drives' => $text('runs_drives'), 'airbags_deployed' => $text('airbags_deployed'),
+            'title_status' => $text('title_status'),
         ];
     }
 
@@ -374,11 +381,15 @@ final class VehicleController
     {
         $values = [];
         foreach ($result['values'] as $key => $value) {
-            $values[$key] = is_array($value) ? implode("\n", $value) : (string) ($value ?? '');
+            $values[$key] = is_array($value) ? implode($key === 'damage_areas' ? ',' : "\n", $value) : (string) ($value ?? '');
         }
         // Keep exactly what was typed in the features box so nothing is lost while fixing another field.
         if (is_string($post['key_features'] ?? null)) {
             $values['key_features'] = $post['key_features'];
+        }
+        // An unticked "accident vehicle" box clears the damage values; keep what was typed so ticking it again loses nothing.
+        if (is_string($post['damage_description'] ?? null) && ($values['damage_description'] ?? '') === '') {
+            $values['damage_description'] = $post['damage_description'];
         }
         $view['values'] = $values + $view['values'];
         $view['errors'] = $result['errors'];

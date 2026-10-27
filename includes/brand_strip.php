@@ -8,7 +8,11 @@ declare(strict_types=1);
  * keyboard through the links); assets/js/brand-strip.js only adds the arrow buttons.
  *
  * Expects: $brands = list<array{name,slug,url,logo}>|null (from PublicBrandService; null = could not be read).
+ * Owner rule 2026-10-26: a section fed by the admin is left out entirely when it has nothing to show.
  */
+if ($brands === null || $brands === []) {
+    return;
+}
 ?>
 <section class="brands" aria-labelledby="brands-title">
     <div class="container">
@@ -17,9 +21,6 @@ declare(strict_types=1);
             <p class="brands__intro">Explore vehicles from the brands we source.</p>
         </header>
 
-<?php if ($brands === null || $brands === []): ?>
-        <p class="brands__empty">Brand selection is currently unavailable.</p>
-<?php else: ?>
         <div class="brand-strip" data-brand-strip>
             <button class="brand-strip__arrow brand-strip__arrow--prev" type="button" data-brand-prev aria-label="Scroll brands left" hidden><?= public_icon('chevron-left') ?></button>
             <div class="brand-strip__viewport" data-brand-viewport>
@@ -40,6 +41,5 @@ declare(strict_types=1);
             </div>
             <button class="brand-strip__arrow brand-strip__arrow--next" type="button" data-brand-next aria-label="Scroll brands right" hidden><?= public_icon('chevron-right') ?></button>
         </div>
-<?php endif; ?>
     </div>
 </section>

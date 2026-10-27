@@ -6,7 +6,10 @@ declare(strict_types=1);
  * Input rules for the parts catalogue (spec 16_spec_parts_catalogue.md, phase 1). Pure functions: no database, no HTML.
  * Everything from the browser is untrusted; the form's own attributes are only a convenience.
  *
- * validate() cleans the part fields and the fitment rows. Whether a category or make actually exists (and is active) is
+ * Spec 27 (2026-10-26): price, condition and stock are optional (null = not set: "Price on request"), and a part has up to
+ * PART_NUMBERS_MAX part numbers (the first is the main one).
+ *
+ * validate() cleans the part fields, the part numbers and the fitment rows. Whether a category or make actually exists (and is active) is
  * checked by PartService against the database.
  */
 final class PartValidator
@@ -21,6 +24,7 @@ final class PartValidator
     public const YEAR_MIN = 1900;
     public const YEAR_MAX = 2100;
     public const FITMENTS_MAX = 20;
+    public const PART_NUMBERS_MAX = 10;
     public const PHOTOS_MAX = 8;
     public const PAGE_SIZE = 20;
     public const SEARCH_MAX = 100;
@@ -32,8 +36,8 @@ final class PartValidator
     /**
      * @param array<string,mixed> $post
      * @return array{values:array<string,mixed>,errors:array<string,string>,fitments:list<array{brand_id:string,model:string,year_from:string,year_to:string}>}
-     *   values: category_id (?int), name, part_number (?string), condition, price (?string, 2 decimals), currency,
-     *           stock_status, description (?string), is_published (0|1);
+     *   values: category_id (?int), name, part_numbers (list<string>, main first), condition (?string), price (?string,
+     *           2 decimals; null = price on request), currency, stock_status (?string), description (?string), is_published (0|1);
      *   fitments: the rows as typed (blank rows dropped), for showing the form again;
      *   errors: field => message ('fitments' for the fitment rows as a whole, 'fitment_N' per row).
      */
@@ -54,20 +58,20 @@ final class PartValidator
             $errors['name'] = 'Use up to ' . self::NAME_MAX . ' characters, without < or >.';
         }
 
-        $partNumber = $text('part_number');
-        if ($partNumber !== '' && (strlen($partNumber) > self::PART_NUMBER_MAX || preg_match('/^[A-Za-z0-9][A-Za-z0-9 .\/_-]*$/', $partNumber) !== 1)) {
-            $errors['part_number'] = 'Use letters, digits, spaces, dots, slashes, hyphens or underscores (up to ' . self::PART_NUMBER_MAX . ').';
-        }
+        [$partNumbers, $numberErrors] = self::partNumbers($post['part_numbers'] ?? []);
+        $errors += $numberErrors;
 
+        // Optional (spec 27): empty = not set.
         $condition = $text('condition');
-        if (!isset(self::CONDITIONS[$condition])) {
-            $errors['condition'] = 'Choose New or Used.';
-            $condition = 'new';
+        if ($condition !== '' && !isset(self::CONDITIONS[$condition])) {
+            $errors['condition'] = 'Choose New, Used or Not set.';
         }
+        $condition = isset(self::CONDITIONS[$condition]) ? $condition : null;
 
-        $price = self::price($text('price'));
-        if ($price === null) {
-            $errors['price'] = 'Enter the price as a number, for example 450 or 450.50.';
+        $rawPrice = $text('price');
+        $price = $rawPrice === '' ? null : self::price($rawPrice);
+        if ($rawPrice !== '' && $price === null) {
+            $errors['price'] = 'Enter the price as a number, for example 450 or 450.50, or leave it empty for "Price on request".';
         }
 
         $currency = $text('currency') === '' ? self::DEFAULT_CURRENCY : $text('currency');
@@ -77,10 +81,10 @@ final class PartValidator
         }
 
         $stock = $text('stock_status');
-        if (!isset(self::STOCK[$stock])) {
-            $errors['stock_status'] = 'Choose In stock or Out of stock.';
-            $stock = 'in_stock';
+        if ($stock !== '' && !isset(self::STOCK[$stock])) {
+            $errors['stock_status'] = 'Choose In stock, Out of stock or Not set.';
         }
+        $stock = isset(self::STOCK[$stock]) ? $stock : null;
 
         $description = str_replace(["\r\n", "\r"], "\n", is_string($post['description'] ?? null) ? trim($post['description']) : '');
         if (mb_strlen($description) > self::DESCRIPTION_MAX || preg_match('/[^\P{Cc}\n\t]/u', $description) === 1) {
@@ -96,7 +100,7 @@ final class PartValidator
             'values' => [
                 'category_id'  => $categoryId,
                 'name'         => $name,
-                'part_number'  => $partNumber === '' ? null : $partNumber,
+                'part_numbers' => $partNumbers,
                 'condition'    => $condition,
                 'price'        => $price,
                 'currency'     => $currency,
@@ -107,6 +111,53 @@ final class PartValidator
             'errors'   => $errors,
             'fitments' => $fitments,
         ];
+    }
+
+    /**
+     * The part numbers from part_numbers[] (spec 27), in the order given: the first is the main number. Blank entries are
+     * ignored; duplicates (ignoring case, spaces and hyphens) are refused.
+     *
+     * @return array{0:list<string>,1:array<string,string>} the cleaned numbers, and errors ('part_numbers' or 'part_number_N')
+     */
+    public static function partNumbers(mixed $rows): array
+    {
+        if (is_string($rows)) {
+            $rows = [$rows];
+        }
+        if (!is_array($rows)) {
+            return [[], ['part_numbers' => 'The part numbers could not be read. Please enter them again.']];
+        }
+        $clean = [];
+        foreach (array_values($rows) as $row) {
+            $number = is_string($row) ? (preg_replace('/\s+/', ' ', trim($row)) ?? '') : '';
+            if ($number !== '') {
+                $clean[] = $number;
+            }
+        }
+        $errors = [];
+        if (count($clean) > self::PART_NUMBERS_MAX) {
+            $errors['part_numbers'] = 'Add at most ' . self::PART_NUMBERS_MAX . ' part numbers.';
+        }
+        $seen = [];
+        foreach ($clean as $n => $number) {
+            if (strlen($number) > self::PART_NUMBER_MAX || preg_match('/^[A-Za-z0-9][A-Za-z0-9 .\/_-]*$/', $number) !== 1) {
+                $errors['part_number_' . $n] = 'Use letters, digits, spaces, dots, slashes, hyphens or underscores (up to ' . self::PART_NUMBER_MAX . ').';
+                continue;
+            }
+            $key = self::numberKey($number);
+            if (isset($seen[$key])) {
+                $errors['part_number_' . $n] = 'This part number is already in the list.';
+            }
+            $seen[$key] = true;
+        }
+
+        return [$clean, $errors];
+    }
+
+    /** "04465-02220", "0446502220" and "04465 02220" are the same number for duplicates and search. */
+    public static function numberKey(string $number): string
+    {
+        return strtoupper(preg_replace('/[\s\-.\/_]+/', '', $number) ?? '');
     }
 
     /**
@@ -199,7 +250,8 @@ final class PartValidator
     /**
      * List filters from the query string. Anything invalid falls back to "no filter" / page 1.
      *
-     * @return array{q:string,category:?int,brand:?int,published:string,stock:string,page:int}
+     * @return array{q:string,category:?int,brand:?int,published:string,stock:string,price:string,fits:string,page:int}
+     *   stock: all | in_stock | out_of_stock | none (not set); price and fits: all | set | none (spec 27)
      */
     public static function filters(array $query): array
     {
@@ -208,11 +260,13 @@ final class PartValidator
             $q = '';
         }
         $published = in_array($query['published'] ?? null, ['yes', 'no'], true) ? (string) $query['published'] : 'all';
-        $stock = isset(self::STOCK[$query['stock'] ?? '']) ? (string) $query['stock'] : 'all';
+        $stock = isset(self::STOCK[$query['stock'] ?? '']) || ($query['stock'] ?? null) === 'none' ? (string) $query['stock'] : 'all';
+        $price = in_array($query['price'] ?? null, ['set', 'none'], true) ? (string) $query['price'] : 'all';
+        $fits = in_array($query['fits'] ?? null, ['set', 'none'], true) ? (string) $query['fits'] : 'all';
         $page = is_string($query['page'] ?? null) && preg_match('/^[1-9][0-9]{0,5}$/', $query['page']) === 1 ? (int) $query['page'] : 1;
 
         return ['q' => $q, 'category' => self::id($query['category'] ?? null), 'brand' => self::id($query['brand'] ?? null),
-            'published' => $published, 'stock' => $stock, 'page' => $page];
+            'published' => $published, 'stock' => $stock, 'price' => $price, 'fits' => $fits, 'page' => $page];
     }
 
     /** A record id from the browser: 1 to 4294967295 as plain digits, else null. */

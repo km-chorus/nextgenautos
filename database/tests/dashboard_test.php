@@ -57,7 +57,7 @@ check('enquiry + availability statuses have labels', admin_status_label('new') =
 $nav = admin_nav_items();
 check('nav has the 9 required items in order (Parts added by spec 16, 2026-10-16)', array_column($nav, 'key') === ['dashboard', 'vehicles', 'parts', 'shipments', 'enquiries', 'team', 'brands', 'content', 'settings']);
 check('every nav item has a link (no dead items)', count(array_filter($nav, fn ($i) => $i['href'] === '')) === 0);
-check('built modules (dashboard, vehicles, parts, brands) link to their pages, the rest to the placeholder', $nav[0]['href'] === 'dashboard.php' && $nav[1]['href'] === 'vehicles.php' && $nav[2]['href'] === 'parts.php' && $nav[3]['href'] === 'coming-soon.php?module=shipments' && $nav[6]['href'] === 'brands.php');
+check('built modules (dashboard, vehicles, parts, shipments, brands) link to their pages, the rest to the placeholder', $nav[0]['href'] === 'dashboard.php' && $nav[1]['href'] === 'vehicles.php' && $nav[2]['href'] === 'parts.php' && $nav[3]['href'] === 'shipments.php' && $nav[4]['href'] === 'coming-soon.php?module=enquiries' && $nav[6]['href'] === 'brands.php');
 
 // ------------------------------------------------------- data layer (rolled back)
 echo "\nData layer (temporary TEST DATA, rolled back)\n";

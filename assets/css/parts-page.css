@@ -1,0 +1,85 @@
+/* Parts and Accessories page (spec 26, rebuilt for spec 27): "Find parts for your vehicle", category chips, the part
+   grid (cards from parts.css), pages, and the "not listed" band. White cards on the grey card area, light Manrope weights
+   (max 600). Two cards per row on phones. */
+
+.pf { padding-block: 2.5rem 3rem; background: var(--card-area); }
+.pf-title { margin: 0 0 var(--s4); font-size: clamp(1.25rem, 1.1rem + 0.7vw, 1.625rem); font-weight: 600; line-height: 1.25; }
+
+/* ---- Finder */
+.pf-finder { padding: var(--s5); background: #fff; border-radius: var(--radius-lg); box-shadow: var(--card-shadow); }
+.pf-finder__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s3); align-items: end; }
+.pf-finder .field { margin: 0; min-width: 0; }
+.pf-finder .label { display: block; margin-bottom: var(--s1); font-size: 0.8125rem; font-weight: 500; color: var(--muted); }
+.pf-finder .select, .pf-finder .input { width: 100%; min-height: 48px; }
+.pf-finder .select:disabled { color: var(--muted); background-color: var(--tint); cursor: not-allowed; }
+.pf-finder__search { grid-column: 1 / -1; }
+.pf-finder__actions { grid-column: 1 / -1; display: flex; align-items: center; gap: var(--s4); }
+.pf-finder__submit { flex: 1; gap: var(--s2); min-height: 48px; }
+.pf-finder__submit .icon { width: 18px; height: 18px; }
+.pf-finder__clear { color: var(--ink); font-size: 0.9375rem; font-weight: 500; }
+/* Search only (no compatible vehicles entered yet): the field and the button on one line from tablets */
+.pf-finder__grid--search { grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 48em) {
+    .pf-finder__grid.pf-finder__grid--search { grid-template-columns: minmax(0, 1fr) auto; }
+    .pf-finder__grid--search .pf-finder__search { grid-column: auto; }
+}
+@media (min-width: 48em) {
+    .pf-finder__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .pf-finder__search { grid-column: span 2; }
+    .pf-finder__actions { grid-column: auto; }
+}
+@media (min-width: 64em) {
+    .pf-finder { padding: var(--s6); }
+    .pf-finder__grid { grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.6fr) auto; }
+    .pf-finder__search, .pf-finder__actions { grid-column: auto; }
+    .pf-finder__submit { flex: none; padding-inline: var(--s6); }
+}
+
+/* ---- Categories and results */
+.pf-cats { margin: var(--s5) 0 0; }
+.pf-results { margin-top: var(--s5); scroll-margin-top: 5rem; }
+.pf-count { margin: 0 0 var(--s2); color: var(--muted); font-size: 0.9375rem; }
+.pf-count strong { color: var(--ink); font-weight: 600; }
+.pf-note { margin: 0 0 var(--s4); color: var(--muted); font-size: 0.875rem; }
+.pf-results .parts-grid { margin-top: var(--s3); }
+
+.pf-empty, .pf-unavailable { padding: var(--s7) var(--s5); text-align: center; background: #fff; border-radius: var(--radius-lg); box-shadow: var(--card-shadow); }
+.pf-empty__title { margin: 0 0 var(--s2); font-size: 1.125rem; font-weight: 600; }
+.pf-empty__text { margin: 0 auto var(--s5); max-width: 32rem; color: var(--muted); }
+.pf-empty__actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--s3); }
+
+/* ---- Pagination (same as the Vehicles page) */
+.pf .pager { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); margin-top: var(--s7); padding-top: var(--s4); border-top: 1px solid var(--line-strong); }
+.pf .pager__pages { display: flex; align-items: center; gap: var(--s1); margin: 0; padding: 0; list-style: none; }
+.pf .pager__num, .pf .pager__link { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; padding-inline: var(--s3); color: var(--ink); font-size: 0.9375rem; font-weight: 500; text-decoration: none; border: 1px solid transparent; border-radius: var(--radius); }
+.pf .pager__link { border-color: var(--ink); }
+.pf .pager__link:hover, .pf .pager__num:hover { background: var(--ink); color: #fff; }
+.pf .pager__num.is-current { border-color: var(--ink); background: var(--ink); color: #fff; }
+.pf .pager__gap { padding-inline: var(--s1); color: var(--muted); }
+
+/* ---- Closing band */
+.pc-cta { padding-block: 0 4rem; background: var(--card-area); }
+.pc-cta__box { display: grid; gap: var(--s5); padding: var(--s6) var(--s5); color: #fff; border-radius: 20px;
+    background: radial-gradient(circle at 100% 0%, rgba(212, 42, 37, 0.35) 0%, rgba(212, 42, 37, 0) 45%), linear-gradient(150deg, #3a3f47 0%, var(--ink) 55%, var(--ink-dark) 100%); }
+.pc-cta__title { margin: 0 0 var(--s2); color: #fff; font-size: clamp(1.25rem, 1.1rem + 0.8vw, 1.75rem); font-weight: 600; line-height: 1.2; }
+.pc-cta__text { margin: 0; color: #c9cdd3; font-size: 1rem; }
+.pc-cta__actions { display: flex; flex-wrap: wrap; gap: var(--s3); }
+.pc-cta__btn { gap: var(--s2); min-height: 50px; padding-inline: var(--s6); }
+.pc-cta__btn .icon { width: 18px; height: 18px; }
+.pc-cta__btn--ghost { color: #fff; background: transparent; border: 1px solid rgba(255, 255, 255, 0.55); }
+.pc-cta__btn--ghost:hover { color: var(--ink); background: #fff; border-color: #fff; }
+.pc-cta :focus-visible { outline-color: #fff; }
+
+@media (min-width: 48em) {
+    .pf { padding-block: 3.5rem 4rem; }
+    .pc-cta { padding-bottom: 5rem; }
+    .pc-cta__box { padding: var(--s7); }
+}
+@media (min-width: 64em) {
+    .pc-cta__box { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+}
+@media (max-width: 29.99em) {
+    .pf-finder { padding: var(--s4); }
+    .pf .pager__pages { display: none; }   /* phones: Previous / Next only */
+    .pc-cta__btn { flex: 1 1 100%; justify-content: center; }
+}

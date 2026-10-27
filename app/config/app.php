@@ -15,8 +15,21 @@ declare(strict_types=1);
  *                            Values below 300 are honored only when APP_ENV=development
  *                            (so a short testing value cannot weaken production).
  */
+// Security audit 2026-10-27 (finding SEC-01): never announce the PHP version. Every web entry point loads this file
+// first, so the header PHP adds when expose_php is on ("X-Powered-By: PHP/8.x") is removed for every response.
+if (PHP_SAPI !== 'cli' && !headers_sent()) {
+    header_remove('X-Powered-By');
+}
+
 final class AppConfig
 {
+    /**
+     * The public website's one official address (owner, 2026-10-27): HTTPS, without "www". Canonical links, og:url,
+     * structured data, sitemap.xml and robots.txt always use it, in every environment, so search engines only ever see
+     * this address. (APP_URL stays the address of the running copy, used for email links and Google sign-in.)
+     */
+    public const SITE_URL = 'https://nextgenautosandparts.com';
+
     public const DEFAULT_SESSION_TIMEOUT = 1800;
 
     /** Login throttling: failures counted inside a sliding window. */
@@ -32,7 +45,7 @@ final class AppConfig
     public const TWO_FACTOR_PENDING_SECONDS = 300;
     /** Seconds an unconfirmed authenticator enrollment stays valid. */
     public const TWO_FACTOR_ENROLLMENT_SECONDS = 900;
-    public const TWO_FACTOR_ISSUER = 'Amponsah Autos';
+    public const TWO_FACTOR_ISSUER = 'Next Gen Autos and Parts';   // label in authenticator apps for NEW set-ups; existing ones keep working
     public const RECOVERY_CODE_COUNT = 10;
 
     /** Password reset throttling (requests are counted whether or not the email exists). */
@@ -68,6 +81,21 @@ final class AppConfig
     public static function isProduction(): bool
     {
         return self::environment() === 'production';
+    }
+
+    /**
+     * Headers sent on every page, public and admin (deployment hardening, 2026-10-26):
+     *   - Permissions-Policy: browser features the site never uses are switched off for it and anything it frames;
+     *   - Strict-Transport-Security: only in production over HTTPS (browsers then always use HTTPS for one year). Not on
+     *     plain-http development, where it would lock the local address. Without includeSubDomains/preload on purpose:
+     *     other subdomains of the company domain may not have HTTPS yet.
+     */
+    public static function sendCommonSecurityHeaders(): void
+    {
+        header('Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), bluetooth=(), magnetometer=(), gyroscope=(), accelerometer=(), interest-cohort=()');
+        if (self::isProduction() && self::isHttps()) {
+            header('Strict-Transport-Security: max-age=31536000');
+        }
     }
 
     /** True when the current request arrived over HTTPS (direct, not via a proxy header). */
@@ -166,6 +194,18 @@ final class AppConfig
         return $url;
     }
 
+    /**
+     * Base address of every link SENT to people (emails: password reset, email confirmation, shipment updates, logo and
+     * website links; the vehicle link in a WhatsApp message): always the official production domain (SITE_URL), whatever
+     * computer sends it, so a recipient never gets a localhost link (owner request 2026-10-27). A constant: never taken
+     * from the request, so a forged Host header cannot change it. APP_URL stays for the Google sign-in callback only,
+     * which must match the copy of the site that is running.
+     */
+    public static function linkUrl(): string
+    {
+        return self::SITE_URL;
+    }
+
     /** Password reset link lifetime in minutes (default 30, allowed 5 to 120). */
     public static function passwordResetMinutes(): int
     {
@@ -179,14 +219,52 @@ final class AppConfig
         return self::env('BREVO_API_KEY');
     }
 
+    /** The verified sender address (MAIL_FROM_ADDRESS; MAIL_FROM_EMAIL is the older name and still accepted). */
     public static function mailFromEmail(): string
     {
-        return self::env('MAIL_FROM_EMAIL');
+        return self::env('MAIL_FROM_ADDRESS', self::env('MAIL_FROM_EMAIL'));
+    }
+
+    /** How mail leaves the application: 'smtp' (Brevo SMTP relay, PHPMailer) or 'brevo_api' (Brevo HTTP API). */
+    public static function mailMailer(): string
+    {
+        $mailer = strtolower(self::env('MAIL_MAILER', 'smtp'));
+
+        return $mailer === 'brevo_api' ? 'brevo_api' : 'smtp';
+    }
+
+    public static function smtpHost(): string
+    {
+        return self::env('SMTP_HOST', 'smtp-relay.brevo.com');
+    }
+
+    public static function smtpPort(): int
+    {
+        $port = (int) self::env('SMTP_PORT', '587');
+
+        return ($port > 0 && $port < 65536) ? $port : 587;
+    }
+
+    /** Only STARTTLS ('tls') is supported: the connection is always encrypted before logging in. */
+    public static function smtpEncryption(): string
+    {
+        return strtolower(self::env('SMTP_ENCRYPTION', 'tls'));
+    }
+
+    public static function smtpUsername(): string
+    {
+        return self::env('SMTP_USERNAME');
+    }
+
+    /** Secret: never logged, never shown, never sent anywhere except to the SMTP server during login. */
+    public static function smtpPassword(): string
+    {
+        return self::env('SMTP_PASSWORD');
     }
 
     public static function mailFromName(): string
     {
-        return self::env('MAIL_FROM_NAME', 'Amponsah Autos');
+        return self::env('MAIL_FROM_NAME', 'Next Gen Autos and Parts');
     }
 
     /** Brevo API base URL. A non-https base (a local test double) is honored only in development. */
@@ -201,17 +279,28 @@ final class AppConfig
     }
 
     /**
-     * Error visibility: in production PHP errors are logged but never shown to the
-     * browser (no paths, SQL or stack traces). In development PHP's own settings are
-     * left alone so problems stay visible to the developer.
+     * Error visibility. Errors are always logged. Web pages NEVER show a PHP error, in any environment (owner request
+     * 2026-10-21): the error guard shows a plain "Something went wrong, please try again" page instead, and the detail
+     * stays in the server log. Command-line scripts and tests keep PHP's own output in development.
      */
     public static function applyErrorSettings(): void
     {
         ini_set('log_errors', '1');
-        if (self::isProduction()) {
+        if (PHP_SAPI !== 'cli') {
+            ini_set('display_errors', '0');
+            ini_set('display_startup_errors', '0');
+            require_once dirname(__DIR__) . '/helpers/error_guard.php';
+            error_guard_install();
+        } elseif (self::isProduction()) {
             ini_set('display_errors', '0');
             ini_set('display_startup_errors', '0');
         }
+    }
+
+    /** APP_DEBUG=1 (development only) adds a short, path-free error line on error pages for the developer. Off by default. */
+    public static function debugDetails(): bool
+    {
+        return self::environment() === 'development' && self::env('APP_DEBUG') === '1';
     }
 
     /** @return array<string,string> */

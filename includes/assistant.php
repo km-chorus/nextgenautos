@@ -15,7 +15,7 @@ declare(strict_types=1);
             <span class="assistant__head-icon" aria-hidden="true"><?= public_icon('bot') ?></span>
             <div class="assistant__head-text">
                 <h2 class="assistant__title" id="assistant-title"><?= e(PUBLIC_SITE_NAME) ?> Assistant</h2>
-                <p class="assistant__sub" id="assistant-sub">Automated answers about vehicles, prices &amp; more</p>
+                <p class="assistant__sub" id="assistant-sub">Ask about vehicles, prices &amp; more</p>
             </div>
             <button class="assistant__close" type="button" data-assistant-close aria-label="Close the assistant"><?= public_icon('close') ?></button>
         </header>

@@ -213,7 +213,7 @@ class VehicleImageService
     }
 
     /** Photo types: the two tabs of the public gallery. */
-    public const TYPES = ['exterior' => 'Exterior', 'interior' => 'Interior'];
+    public const TYPES = ['exterior' => 'Exterior', 'interior' => 'Interior', 'damage' => 'Damage'];   // damage: spec 23 (accident vehicles)
 
     /**
      * Marks a photo as an exterior or interior photo (the gallery tab it appears under on the vehicle page).

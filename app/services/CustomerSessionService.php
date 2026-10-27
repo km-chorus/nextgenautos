@@ -42,8 +42,11 @@ class CustomerSessionService
         session_start();
     }
 
-    /** New signed-in session. Regenerates the id (session fixation defence) and issues a fresh CSRF token. */
-    public function establish(int $customerId): void
+    /**
+     * New signed-in session. Regenerates the id (session fixation defence) and issues a fresh CSRF token. $welcome is
+     * shown once as a toast on the next page (owner request 2026-10-22): 'back' after a sign-in, 'new' for a new account.
+     */
+    public function establish(int $customerId, string $welcome = 'back'): void
     {
         $this->start();
         session_regenerate_id(true);
@@ -55,7 +58,48 @@ class CustomerSessionService
             'authenticated_at' => $now,
             'last_activity'    => $now,
             'csrf_token'       => bin2hex(random_bytes(32)),
+            'welcome'          => in_array($welcome, ['back', 'new'], true) ? $welcome : 'back',
         ];
+    }
+
+    /** The address typed on "Forgot your password?", so the code form can fill it in (null clears it). */
+    public function rememberResetEmail(?string $email): void
+    {
+        $this->start();
+        if ($email === null) {
+            unset($_SESSION['reset_email']);
+        } else {
+            $_SESSION['reset_email'] = substr($email, 0, 255);
+        }
+    }
+
+    public function resetEmail(): ?string
+    {
+        if (session_status() !== PHP_SESSION_ACTIVE && !isset($_COOKIE[self::COOKIE_NAME])) {
+            return null;
+        }
+        $this->start();
+
+        return is_string($_SESSION['reset_email'] ?? null) ? $_SESSION['reset_email'] : null;
+    }
+
+    /** When this session signed in (Unix time), or null. Compared with customers.password_changed_at. */
+    public function authenticatedAt(): ?int
+    {
+        return session_status() === PHP_SESSION_ACTIVE && isset($_SESSION['authenticated_at']) ? (int) $_SESSION['authenticated_at'] : null;
+    }
+
+    /** The welcome to show once after signing in ('back' | 'new'), or null; it is removed when read. */
+    public function consumeWelcome(): ?string
+    {
+        if (session_status() !== PHP_SESSION_ACTIVE && !isset($_COOKIE[self::COOKIE_NAME])) {
+            return null;
+        }
+        $this->start();
+        $welcome = $_SESSION['welcome'] ?? null;
+        unset($_SESSION['welcome']);
+
+        return in_array($welcome, ['back', 'new'], true) ? $welcome : null;
     }
 
     /** @return int|null the signed-in customer's id, or null (no cookie, no session, or inactivity timeout; an expired session is destroyed) */
@@ -79,11 +123,20 @@ class CustomerSessionService
     }
 
     /** Pages a signed-out visitor may be sent back to after signing in. A fixed list: the value never comes from the request. */
-    public const RETURN_TARGETS = ['/track/'];
+    public const RETURN_TARGETS = ['/', '/track/', '/account/', '/account/settings/', '/vehicles/'];
+
+    /**
+     * Where a customer may be sent back to after signing in: the fixed pages above, or one vehicle page (spec 22: a guest
+     * who presses "Save" on a vehicle returns to it). Strict pattern: never another site, never anything else.
+     */
+    public static function isReturnTarget(string $path): bool
+    {
+        return in_array($path, self::RETURN_TARGETS, true) || preg_match('#^/vehicle/[a-z0-9]+(?:-[a-z0-9]+)*/$#D', $path) === 1 && strlen($path) <= 180;
+    }
 
     public function setReturnTo(string $path): void
     {
-        if (in_array($path, self::RETURN_TARGETS, true)) {
+        if (self::isReturnTarget($path)) {
             $this->start();
             $_SESSION['return_to'] = $path;
         }
@@ -99,7 +152,7 @@ class CustomerSessionService
         $path = $_SESSION['return_to'] ?? null;
         unset($_SESSION['return_to']);
 
-        return is_string($path) && in_array($path, self::RETURN_TARGETS, true) ? $path : null;
+        return is_string($path) && self::isReturnTarget($path) ? $path : null;
     }
 
     /** Remembers the OAuth state and nonce of a Google sign-in that is in progress (one use, short-lived). */

@@ -25,10 +25,9 @@ final class CustomerValidator
         $confirm = is_string($post['password_confirm'] ?? null) ? $post['password_confirm'] : '';
 
         $errors = [];
-        if ($name === '') {
-            $errors['name'] = 'Enter your full name.';
-        } elseif (mb_strlen($name) > self::MAX_NAME || preg_match('/[\p{Cc}<>]/u', $name) === 1) {
-            $errors['name'] = 'Use up to ' . self::MAX_NAME . ' characters, without special symbols.';
+        $nameError = self::name($post['name'] ?? null)['error'];
+        if ($nameError !== null) {
+            $errors['name'] = $nameError;
         }
 
         if ($email === '') {
@@ -51,5 +50,24 @@ final class CustomerValidator
         }
 
         return ['values' => ['name' => $name, 'email' => $email, 'password' => $password], 'errors' => $errors];
+    }
+
+    /**
+     * A customer's full name (registration and account settings): spaces collapsed, up to MAX_NAME characters, no
+     * control characters or angle brackets.
+     *
+     * @return array{value:string,error:?string}
+     */
+    public static function name(mixed $raw): array
+    {
+        $name = is_string($raw) && strlen($raw) <= 2000 && mb_check_encoding($raw, 'UTF-8') ? trim(preg_replace('/\s+/u', ' ', $raw) ?? '') : '';
+        if ($name === '') {
+            return ['value' => '', 'error' => 'Enter your full name.'];
+        }
+        if (mb_strlen($name) > self::MAX_NAME || preg_match('/[\p{Cc}<>]/u', $name) === 1) {
+            return ['value' => $name, 'error' => 'Use up to ' . self::MAX_NAME . ' characters, without special symbols.'];
+        }
+
+        return ['value' => $name, 'error' => null];
     }
 }

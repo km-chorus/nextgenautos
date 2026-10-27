@@ -33,6 +33,8 @@ class VehicleService
     public const RESULT_REFERENCED = 'referenced';
 
     public const MESSAGE_DUPLICATE_SLUG = 'This vehicle URL is already in use.';
+    /** Spec 23: an accident vehicle is published only with its damage shown (description in the form, photos on Manage Images). */
+    public const MESSAGE_NEEDS_DAMAGE_PHOTO = 'An accident vehicle can be published only after at least one Damage photo is added. Save it as not published, add the photos on Manage Images (type: Damage), then publish it.';
     private const SLUG_ATTEMPTS = 100;
 
     public function __construct(
@@ -144,6 +146,9 @@ class VehicleService
         if (!isset($errors['slug']) && $values['slug'] !== '' && $this->vehicles->slugTaken($values['slug'])) {
             $errors['slug'] = self::MESSAGE_DUPLICATE_SLUG;
         }
+        if ($values['is_accident'] === 1 && $values['is_published'] === 1) {
+            $errors['is_published'] = self::MESSAGE_NEEDS_DAMAGE_PHOTO;    // a new vehicle has no photos yet
+        }
         if ($errors !== []) {
             return ['status' => self::RESULT_INVALID, 'id' => null, 'values' => $values, 'errors' => $errors];
         }
@@ -160,7 +165,8 @@ class VehicleService
             $id = Transaction::run($this->pdo, function () use ($values, $brand, $adminId, $ip, $userAgent): int {
                 $id = $this->vehicles->insert($values);
                 $this->audit->record('VEHICLE_CREATED', $adminId, 'vehicle', $id,
-                    'Vehicle created: ' . self::label($values, (string) $brand['name']) . ' (' . $values['slug'] . '), ' . $values['availability_status'], $ip, $userAgent);
+                    'Vehicle created: ' . self::label($values, (string) $brand['name']) . ' (' . $values['slug'] . '), ' . $values['availability_status']
+                    . ($values['is_accident'] === 1 ? ', accident vehicle' : ''), $ip, $userAgent);
 
                 return $id;
             });
@@ -200,6 +206,9 @@ class VehicleService
         }
         if (!isset($errors['slug']) && $this->vehicles->slugTaken($values['slug'], $id)) {
             $errors['slug'] = self::MESSAGE_DUPLICATE_SLUG;
+        }
+        if ($values['is_accident'] === 1 && $values['is_published'] === 1 && (int) ($existing['damage_image_count'] ?? 0) === 0) {
+            $errors['is_published'] = self::MESSAGE_NEEDS_DAMAGE_PHOTO;
         }
         if ($errors !== []) {
             return ['status' => self::RESULT_INVALID, 'id' => $id, 'values' => $values, 'errors' => $errors];
@@ -378,7 +387,8 @@ class VehicleService
     {
         $changed = [];
         foreach (['brand_id', 'year', 'model', 'trim', 'engine_size', 'mileage', 'mileage_unit', 'transmission', 'fuel_type', 'drive_type',
-            'currency', 'description', 'shipping_info', 'duty_included', 'availability_status', 'is_published', 'slug'] as $field) {
+            'currency', 'description', 'shipping_info', 'duty_included', 'availability_status', 'is_published', 'slug',
+            'is_accident', 'damage_description', 'runs_drives', 'airbags_deployed', 'title_status'] as $field) {
             if ((string) ($existing[$field] ?? '') !== (string) ($values[$field] ?? '')) {
                 $changed[] = $field;
             }
@@ -388,6 +398,9 @@ class VehicleService
         }
         if (VehicleRepository::decodeFeatures($existing['key_features']) !== $values['key_features']) {
             $changed[] = 'key_features';
+        }
+        if ((string) ($existing['damage_areas'] ?? '') !== implode(',', $values['damage_areas'] ?? [])) {
+            $changed[] = 'damage_areas';
         }
 
         return $changed;

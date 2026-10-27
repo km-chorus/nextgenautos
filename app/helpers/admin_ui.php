@@ -13,7 +13,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/html.php';
 
 /** Temporary text-based brand. Replace with the approved logo asset when available. */
-const ADMIN_BRAND_NAME = 'Mr. AmponsahAutos';
+const ADMIN_BRAND_NAME = 'Next Gen Autos and Parts';
 const ADMIN_BRAND_SUBTITLE = 'Administration';
 
 /**
@@ -36,8 +36,7 @@ function admin_send_headers(): void
     header('Pragma: no-cache');
     header('Expires: 0');
     header('X-Robots-Tag: noindex, nofollow');
-    // Deliberately deferred: Strict-Transport-Security (only valid once the production
-    // domain serves HTTPS; set it at deployment) and Permissions-Policy.
+    AppConfig::sendCommonSecurityHeaders();   // Permissions-Policy; HSTS in production over HTTPS
 }
 
 /** Opening <html> through </head> for every admin page (shell and login). */
@@ -88,7 +87,7 @@ function admin_icon(string $name, string $class = ''): string
  */
 function admin_module_href(string $module): string
 {
-    static $built = ['dashboard' => 'dashboard.php', 'vehicles' => 'vehicles.php', 'team' => 'team.php', 'brands' => 'brands.php', 'parts' => 'parts.php', 'settings' => 'settings.php'];
+    static $built = ['dashboard' => 'dashboard.php', 'vehicles' => 'vehicles.php', 'team' => 'team.php', 'brands' => 'brands.php', 'parts' => 'parts.php', 'shipments' => 'shipments.php', 'settings' => 'settings.php'];
 
     return $built[$module] ?? 'coming-soon.php?module=' . rawurlencode($module);
 }
@@ -105,7 +104,7 @@ function admin_nav_items(): array
         ['dashboard', 'Dashboard', 'dashboard', false],
         ['vehicles',  'Vehicles',  'car',       false],
         ['parts',     'Parts',     'wrench',    false],
-        ['shipments', 'Shipments', 'ship',      true],
+        ['shipments', 'Shipments', 'ship',      false],
         ['enquiries', 'Enquiries', 'message',   true],
         ['team',      'Team',      'users',     false],
         ['brands',    'Brands',    'tag',       false],

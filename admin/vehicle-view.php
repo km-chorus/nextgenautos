@@ -93,6 +93,28 @@ require dirname(__DIR__) . '/includes/admin/shell_start.php';
         <p class="hint">The website does not calculate Ghana import duty. Customers use the approved external duty calculator.</p>
     </section>
 
+<?php if ((int) ($vehicle['is_accident'] ?? 0) === 1):
+    $choiceLabel = static fn (array $choices, mixed $key): string => isset($choices[(string) $key]) ? e($choices[(string) $key]) : $notStated;
+    $areaLabels = array_map(static fn (string $k): string => VehicleValidator::DAMAGE_AREAS[$k] ?? $k, array_filter(explode(',', (string) ($vehicle['damage_areas'] ?? ''))));
+    $damagePhotos = (int) ($vehicle['damage_image_count'] ?? 0);
+?>
+    <section class="card" aria-labelledby="damage-heading">
+        <h2 class="card__title" id="damage-heading">Accident damage</h2>
+        <?php if ($damagePhotos === 0): ?>
+            <?= admin_alert('warning', 'This accident vehicle has no Damage photo, so it cannot be shown on the website. Add one on Manage Images and set its type to Damage.') ?>
+        <?php endif; ?>
+        <dl class="facts facts--wide">
+            <div><dt>Listed on</dt><dd>Accident Vehicles page only</dd></div>
+            <div><dt>Damaged areas</dt><dd><?= $areaLabels === [] ? $notStated : e(implode(', ', $areaLabels)) ?></dd></div>
+            <div><dt>Runs and drives</dt><dd><?= $choiceLabel(VehicleValidator::RUNS_DRIVES, $vehicle['runs_drives'] ?? null) ?></dd></div>
+            <div><dt>Airbags deployed</dt><dd><?= $choiceLabel(VehicleValidator::AIRBAGS, $vehicle['airbags_deployed'] ?? null) ?></dd></div>
+            <div><dt>Title status</dt><dd><?= $choiceLabel(VehicleValidator::TITLE_STATUSES, $vehicle['title_status'] ?? null) ?></dd></div>
+            <div><dt>Damage photos</dt><dd><?= $damagePhotos ?></dd></div>
+        </dl>
+        <p class="prose"><?= nl2br(e((string) ($vehicle['damage_description'] ?? '')), false) ?></p>
+    </section>
+<?php endif; ?>
+
     <section class="card" aria-labelledby="specs-heading">
         <h2 class="card__title" id="specs-heading">Specifications</h2>
         <dl class="facts facts--wide">

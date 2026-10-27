@@ -11,7 +11,13 @@ declare(strict_types=1);
  * Photos: new photos are uploaded with the form; on the Edit page the existing photos have their own small forms
  * (outside the main form, linked with the `form` attribute) to remove one or make it the main photo.
  *
- * Expected variables: string $formAction, array $values, array $errors, list $fitments, list $categoryChoices,
+ * Spec 27: several part numbers (rows; the first is the main one; part-form.js adds Add / Remove / Up / Down), optional
+ * price, condition and stock ("Not set"), and "Copy compatible vehicles from another part" (a second submit button that
+ * returns the form with the copied rows, nothing saved). A hidden copy of the Save button comes first in the form so that
+ * pressing Enter in a field always saves, never copies.
+ *
+ * Expected variables: string $formAction, array $values, array $errors, list $fitments, list<string> $numbers,
+ * list $copySources, ?array $copyNotice, string $copySelected, list $categoryChoices,
  * list $brandChoices, ?array $part (null on Add), string $submitLabel, string $cancelHref, ?string $formMessage,
  * array $photoLimits (maxBytes, maxTotal, limitText, notice).
  */
@@ -29,7 +35,7 @@ $field = static function (string $name, bool $hint = false) use ($errors): array
 };
 [$catAttr, $catErr] = $field('category_id');
 [$nameAttr, $nameErr] = $field('name');
-[$numAttr, $numErr] = $field('part_number', true);
+[, $numsErr] = $field('part_numbers');
 [, $condErr] = $field('condition');
 [$stockAttr, $stockErr] = $field('stock_status');
 [$priceAttr, $priceErr] = $field('price', true);
@@ -42,6 +48,29 @@ for ($n = 0; $n < PartController::BLANK_FITMENT_ROWS; $n++) {
     $rows[] = ['brand_id' => '', 'model' => '', 'year_from' => '', 'year_to' => ''];
 }
 $rows = array_slice($rows, 0, PartValidator::FITMENTS_MAX);
+$numberRows = $numbers;
+for ($n = 0; $n < PartController::BLANK_NUMBER_ROWS; $n++) {
+    $numberRows[] = '';
+}
+$numberRows = array_slice($numberRows, 0, PartValidator::PART_NUMBERS_MAX);
+
+/** One part-number row. $n is its index (or "__N__" in the template). */
+$numberRow = static function (int|string $n, string $value) use ($errors): string {
+    $error = is_int($n) ? ($errors['part_number_' . $n] ?? null) : null;
+    $id = 'pn-' . $n;
+    $invalid = $error !== null ? ' aria-invalid="true"' : '';
+
+    return '<li class="number-row" data-number-row>'
+        . '<div class="field"><label class="label" for="' . $id . '"><span data-number-label>' . ($n === 0 ? 'Main part number' : 'Other part number') . '</span></label>'
+        . '<input class="input" type="text" id="' . $id . '" name="part_numbers[]" value="' . e($value) . '" maxlength="' . PartValidator::PART_NUMBER_MAX . '" autocomplete="off" spellcheck="false" aria-describedby="' . $id . '-error"' . $invalid . '></div>'
+        . '<div class="number-row__tools" data-number-tools hidden>'
+        . '<button type="button" class="btn btn--ghost btn--sm" data-number-up>Up<span class="sr-only"> (make this number earlier)</span></button>'
+        . '<button type="button" class="btn btn--ghost btn--sm" data-number-down>Down<span class="sr-only"> (make this number later)</span></button>'
+        . '<button type="button" class="btn btn--ghost btn--sm btn--text-danger" data-number-remove>Remove<span class="sr-only"> this part number</span></button>'
+        . '</div>'
+        . '<p class="field-error number-row__error" id="' . $id . '-error" role="alert"' . ($error === null ? ' hidden' : '') . '>' . admin_icon('alert-circle', 'icon--sm') . '<span data-error-text>' . e((string) $error) . '</span></p>'
+        . '</li>';
+};
 $room = PartValidator::PHOTOS_MAX - count($images);
 
 /** One make / model / years row. $n is its index; $row its values; the template row uses "__N__". */
@@ -72,6 +101,7 @@ $fitmentRow = static function (int|string $n, array $row) use ($brandChoices, $e
 <form method="post" action="<?= e($formAction) ?>" enctype="multipart/form-data" class="part-form" id="part-form" novalidate data-single-submit
       data-image-upload data-max-files="<?= max(0, $room) ?>" data-max-bytes="<?= (int) $photoLimits['maxBytes'] ?>" data-max-total="<?= (int) $photoLimits['maxTotal'] ?>">
     <?= csrf_field() ?>
+    <button type="submit" class="sr-only" tabindex="-1" aria-hidden="true"><?= e($submitLabel) ?></button>
     <p class="hint"><span aria-hidden="true">*</span> Required field</p>
 
     <fieldset class="card form-section">
@@ -95,24 +125,21 @@ $fitmentRow = static function (int|string $n, array $row) use ($brandChoices, $e
         </div>
         <div class="form-row">
             <div class="field">
-                <label class="label" for="part-part-number">Part number <span class="label__note">(optional)</span></label>
-                <input class="input" type="text" id="part-part-number" name="part_number" value="<?= e($v('part_number')) ?>" maxlength="<?= PartValidator::PART_NUMBER_MAX ?>" autocomplete="off" spellcheck="false"<?= $numAttr ?>>
-                <p class="hint" id="part-part-number-hint">The manufacturer's (OEM) number, for example 04465-02220.</p>
-                <?= $numErr ?>
-            </div>
-            <div class="field">
-                <label class="label" for="part-stock-status">Stock <span aria-hidden="true">*</span></label>
+                <label class="label" for="part-stock-status">Stock <span class="label__note">(optional)</span></label>
                 <select class="select" id="part-stock-status" name="stock_status"<?= $stockAttr ?>>
+                    <option value="">Not set</option>
                     <?php foreach (PartValidator::STOCK as $key => $label): ?>
                         <option value="<?= e($key) ?>"<?= $v('stock_status') === $key ? ' selected' : '' ?>><?= e($label) ?></option>
                     <?php endforeach; ?>
                 </select>
+                <p class="hint">Only parts marked In stock appear on the pages of the vehicles they fit.</p>
                 <?= $stockErr ?>
             </div>
         </div>
         <fieldset class="form-section field" aria-describedby="part-condition-error">
-            <legend class="label">Condition <span aria-hidden="true">*</span></legend>
+            <legend class="label">Condition <span class="label__note">(optional)</span></legend>
             <div class="cluster">
+                <label class="check"><input type="radio" name="condition" value=""<?= $v('condition') === '' ? ' checked' : '' ?>><span class="check__text">Not set</span></label>
                 <?php foreach (PartValidator::CONDITIONS as $key => $label): ?>
                     <label class="check"><input type="radio" name="condition" value="<?= e($key) ?>"<?= $v('condition') === $key ? ' checked' : '' ?>><span class="check__text"><?= e($label) ?></span></label>
                 <?php endforeach; ?>
@@ -121,8 +148,24 @@ $fitmentRow = static function (int|string $n, array $row) use ($brandChoices, $e
         </fieldset>
     </fieldset>
 
-    <fieldset class="card form-section" aria-describedby="part-fitments-hint part-fitments-error">
+    <fieldset class="card form-section" aria-describedby="part-numbers-hint part-part-numbers-error">
+        <legend class="card__title">Part numbers</legend>
+        <p class="hint" id="part-numbers-hint">The manufacturer's (OEM) number first, for example 04465-02220, then any alternative or interchange numbers. The first number is shown on the website; customers can search by any of them. Up to <?= PartValidator::PART_NUMBERS_MAX ?>, all optional.</p>
+        <?= $numsErr ?>
+        <ol class="number-list" data-number-list data-number-max="<?= PartValidator::PART_NUMBERS_MAX ?>">
+            <?php foreach ($numberRows as $n => $value): ?>
+                <?= $numberRow($n, $value) . "\n" ?>
+            <?php endforeach; ?>
+        </ol>
+        <template data-number-template><?= $numberRow('__N__', '') ?></template>
+        <button type="button" class="btn btn--secondary btn--sm" data-number-add hidden><?= admin_icon('plus') ?>Add another number</button>
+    </fieldset>
+
+    <fieldset class="card form-section" id="fitments" aria-describedby="part-fitments-hint part-fitments-error">
         <legend class="card__title">Compatible vehicles</legend>
+        <?php if ($copyNotice !== null): ?>
+            <div data-login-notice tabindex="-1"><?= admin_alert($copyNotice['type'], $copyNotice['text']) ?></div>
+        <?php endif; ?>
         <p class="hint" id="part-fitments-hint">The vehicles this part fits, one per row. Leave the model empty when it fits every model of that make, and a year empty when there is no limit. Leave the rows empty for a universal accessory: the website then asks customers to confirm compatibility with you.</p>
         <?php if (isset($errors['fitments'])): ?>
             <p class="field-error" id="part-fitments-error" role="alert"><?= admin_icon('alert-circle', 'icon--sm') ?><span data-error-text><?= e($errors['fitments']) ?></span></p>
@@ -134,15 +177,30 @@ $fitmentRow = static function (int|string $n, array $row) use ($brandChoices, $e
         </ol>
         <template data-fitment-template><?= $fitmentRow('__N__', ['brand_id' => '', 'model' => '', 'year_from' => '', 'year_to' => '']) ?></template>
         <button type="button" class="btn btn--secondary btn--sm" data-fitment-add hidden><?= admin_icon('plus') ?>Add another vehicle</button>
+        <?php if ($copySources !== []): ?>
+            <div class="copy-fitments">
+                <div class="field">
+                    <label class="label" for="part-copy-from">Copy compatible vehicles from another part</label>
+                    <select class="select" id="part-copy-from" name="copy_from" aria-describedby="part-copy-hint">
+                        <option value="">Choose a part</option>
+                        <?php foreach ($copySources as $src): ?>
+                            <option value="<?= $src['id'] ?>"<?= $copySelected === (string) $src['id'] ? ' selected' : '' ?>><?= e($src['name']) ?><?= $src['part_number'] !== null ? ' (' . e($src['part_number']) . ')' : '' ?> · <?= $src['fitments'] ?> vehicle<?= $src['fitments'] === 1 ? '' : 's' ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <p class="hint" id="part-copy-hint">Adds that part's vehicles to the list above. Nothing is saved until you press <?= e($submitLabel) ?>. Photos you selected but have not saved must be chosen again.</p>
+                </div>
+                <button type="submit" class="btn btn--secondary btn--sm" name="form_action" value="copy_fitments" formnovalidate>Copy vehicles</button>
+            </div>
+        <?php endif; ?>
     </fieldset>
 
     <fieldset class="card form-section">
         <legend class="card__title">Price</legend>
         <div class="form-row">
             <div class="field">
-                <label class="label" for="part-price">Price <span aria-hidden="true">*</span></label>
-                <input class="input" type="text" inputmode="decimal" id="part-price" name="price" value="<?= e($v('price')) ?>" maxlength="16" autocomplete="off" required<?= $priceAttr ?>>
-                <p class="hint" id="part-price-hint">The public price, for example 450 or 450.50.</p>
+                <label class="label" for="part-price">Price <span class="label__note">(optional)</span></label>
+                <input class="input" type="text" inputmode="decimal" id="part-price" name="price" value="<?= e($v('price')) ?>" maxlength="16" autocomplete="off"<?= $priceAttr ?>>
+                <p class="hint" id="part-price-hint">The public price, for example 450 or 450.50. Leave it empty to show "Price on request".</p>
                 <?= $priceErr ?>
             </div>
             <div class="field">
@@ -204,7 +262,7 @@ $fitmentRow = static function (int|string $n, array $row) use ($brandChoices, $e
     <fieldset class="card form-section">
         <legend class="card__title">Website</legend>
         <label class="check"><input type="checkbox" name="is_published" value="1"<?= $v('is_published') === '1' ? ' checked' : '' ?>><span class="check__text">Show this part on the website</span></label>
-        <p class="hint">Published parts appear in Latest Parts &amp; Accessories on the homepage. Archived parts are never shown.</p>
+        <p class="hint">Published parts appear on the Parts and Accessories page. Those with a price also appear in Latest Parts &amp; Accessories on the homepage. Archived parts are never shown.</p>
     </fieldset>
 
     <div class="cluster form-actions">

@@ -1,31 +1,118 @@
-/* Track Vehicle page (spec 13). Reuses the .process__* step styles from how-it-works.css.
-   Phones: the panel, then the steps. Wide screens: panel and steps side by side. */
+/* Track Vehicle page (spec 13/20; simplified layout of 2026-10-22): tracking number field, one card per shipment with a
+   long horizontal status bar, one line on how tracking works. White cards without a border on the grey card area. */
 
-.track__signed-in { margin: 0 0 var(--s5); color: var(--muted); }
-.track__grid { display: grid; gap: var(--s6); align-items: start; }
+.track-area { padding-block: var(--s6) var(--s8); background: var(--card-area); }
+.track__signed-in { margin: 0 0 var(--s4); color: var(--muted); }
 
-.track-panel { padding: var(--s5); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
-.track-panel__title, .track-how__title { margin: 0 0 var(--s4); font-size: var(--fs-h3); font-weight: 600; }
-.track-panel__subtitle { margin: var(--s5) 0 var(--s2); font-size: 1.0625rem; font-weight: 600; }
-.track-panel__status { display: flex; gap: var(--s3); align-items: flex-start; margin: 0 0 var(--s4); padding: var(--s3) var(--s4); border-left: 4px solid #2F5D8A; background: var(--page); font-weight: 500; }
-.track-panel__status .icon { flex: none; margin-top: 0.15rem; }
-.track-panel__action { margin: var(--s4) 0; }
-.track-panel__action .btn { width: 100%; }
-.track-panel__note { margin: 0; color: var(--muted); font-size: 0.875rem; }
-.track__help { margin: var(--s6) 0 0; color: var(--muted); }
-
-@media (min-width: 62em) {
-    .track__grid { grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: var(--s7); }
-    .track-panel__action .btn { width: auto; }
+/* Tracking number search */
+.track-search { margin: 0 0 var(--s5); padding: var(--s5) var(--s4); background: #fff; border-radius: var(--radius-lg); box-shadow: var(--card-shadow); }
+.track-search__title { margin: 0 0 var(--s3); font-size: 1.125rem; font-weight: 600; }
+.track-search__form { display: flex; gap: var(--s2); }
+.track-search__input {
+    flex: 1 1 auto; min-width: 0; min-height: 52px; padding: 0 var(--s4); font: inherit; font-size: 1.0625rem; letter-spacing: 0.04em; text-transform: uppercase;
+    color: var(--ink); background: #fff; border: 1px solid var(--line-strong); border-radius: var(--radius);
 }
+.track-search__input::placeholder { color: var(--muted); letter-spacing: 0; text-transform: none; }
+.track-search__input[aria-invalid="true"] { border-color: var(--accent); }
+.track-search__button { flex: 0 0 auto; min-height: 52px; gap: var(--s2); padding-inline: var(--s5); }
+.track-search__button .icon { width: 19px; height: 19px; }
+.track-search__hint { margin: var(--s2) 0 0; color: var(--muted); font-size: 0.8125rem; }
+.track-search__error, .track-search__found { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); margin: var(--s3) 0 0; font-size: 0.9375rem; }
+.track-search__error { color: var(--accent); font-weight: 500; }
+.track-search__error .icon, .track-search__found .icon { flex: none; width: 18px; height: 18px; }
+.track-search__found .icon { color: #2f6b3f; }
+.track-search__result { margin: var(--s4) 0 0; padding: var(--s4); background: var(--tint); border-radius: var(--radius); }
+.track-search__result p { margin: 0 0 var(--s3); }
+.track-search__links { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3); margin: 0 !important; }
+.track-search__all { color: var(--ink); font-weight: 500; text-decoration: underline; text-underline-offset: 2px; }
+@media (max-width: 29.99em) { .track-search__button span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); } .track-search__button { padding-inline: var(--s4); } }
 
-/* The steps stay vertical here (the horizontal process of how-it-works.css needs the full page width) */
-@media (min-width: 64em) {
-    .track-how .process__steps { display: block; }
-    .track-how .process__step { padding: 0 0 var(--s6) calc(var(--dot) + var(--s5)); }
-    .track-how .process__step:last-child { padding-bottom: 0; }
-    .track-how .process__step::before { left: calc(var(--dot) / 2 - 0.5px); right: auto; top: 0.55rem; bottom: -0.55rem; width: 1px; height: auto; }
-    .track-how .process__step:last-child::before { display: none; }
-    .track-how .process__step::after { top: 0.2rem; }
-    .track-how .process__step-text { max-width: 34rem; }
-}
+/* Shipment cards */
+.track__unavailable { display: flex; gap: var(--s2); align-items: center; margin: 0 0 var(--s5); padding: var(--s3) var(--s4); background: #fff; border-radius: var(--radius); }
+.track-ships { display: grid; gap: var(--s4); }
+.ship-card { padding: var(--s5) var(--s4); background: #fff; border-radius: var(--radius-lg); box-shadow: var(--card-shadow); }
+@media (min-width: 48em) { .ship-card, .track-search { padding: var(--s6); } }
+.ship-card__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s2) var(--s4); margin-bottom: var(--s5); }
+.ship-card__title { margin: 0; font-size: 1.25rem; font-weight: 600; }
+.ship-card__updated { margin: var(--s1) 0 0; color: var(--muted); font-size: 0.8125rem; }
+.ship-card__status { margin: 0; padding: 4px 12px; color: #fff; font-size: 0.8125rem; font-weight: 600; background: var(--ink); border-radius: 999px; }
+
+/* The long horizontal status bar: six steps; done = green, current = red ring, still to come = grey */
+.ship-bar { position: relative; margin: 0 0 var(--s5); --dot: 18px; }
+.ship-bar__track { position: absolute; left: calc(100% / 12); right: calc(100% / 12); top: calc(var(--dot) / 2 - 2px); height: 4px; background: var(--line); border-radius: 2px; }
+.ship-bar__fill { display: block; height: 100%; background: #2f6b3f; border-radius: 2px; }
+.ship-bar__fill--0 { width: 0; } .ship-bar__fill--20 { width: 20%; } .ship-bar__fill--40 { width: 40%; }
+.ship-bar__fill--60 { width: 60%; } .ship-bar__fill--80 { width: 80%; } .ship-bar__fill--100 { width: 100%; }
+.ship-bar__steps { position: relative; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); margin: 0; padding: 0; list-style: none; }
+.ship-bar__step { display: flex; flex-direction: column; align-items: center; gap: var(--s1); min-width: 0; text-align: center; }
+.ship-bar__dot { width: var(--dot); height: var(--dot); background: #fff; border: 3px solid var(--line-strong); border-radius: 50%; }
+.ship-bar__step--done .ship-bar__dot { background: #2f6b3f; border-color: #2f6b3f; }
+.ship-bar__step--current .ship-bar__dot { background: #fff; border-color: var(--accent); box-shadow: 0 0 0 4px rgba(212, 42, 37, 0.15); }
+.ship-bar__label { padding-inline: 1px; color: var(--muted); font-size: 0.625rem; font-weight: 500; line-height: 1.25; overflow-wrap: normal; word-break: normal; hyphens: manual; }
+@media (max-width: 29.99em) { .ship-bar { margin-inline: calc(var(--s2) * -1); } }   /* small phones: a little more width for the six labels */
+.ship-bar__step--done .ship-bar__label { color: var(--ink); }
+.ship-bar__step--current .ship-bar__label { color: var(--accent); font-weight: 600; }
+.ship-bar__date { color: var(--muted); font-size: 0.625rem; line-height: 1.2; }
+@media (min-width: 40em) { .ship-bar { --dot: 22px; } .ship-bar__label { font-size: 0.8125rem; } .ship-bar__date { font-size: 0.75rem; } }
+
+.ship-card__facts { display: grid; gap: var(--s3); margin: 0; }
+@media (min-width: 40em) { .ship-card__facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ship-card__fact--wide { grid-column: 1 / -1; } }
+.ship-card__fact { padding: var(--s3) var(--s4); background: var(--tint); border-radius: var(--radius); }
+.ship-card__fact dt { color: var(--muted); font-size: 0.8125rem; }
+.ship-card__fact dd { margin: 2px 0 0; font-weight: 600; overflow-wrap: anywhere; }
+.ship-card__hint { font-size: 0.75rem; }
+.ship-card__container { font-family: ui-monospace, Consolas, monospace; font-size: 1.125rem; letter-spacing: 0.05em; user-select: all; }
+.ship-card__copy { min-height: 32px; margin-left: var(--s2); padding: 0 var(--s3); font: inherit; font-size: 0.8125rem; font-weight: 500; color: var(--ink); background: #fff; border: 1px solid var(--line-strong); border-radius: var(--radius); cursor: pointer; }
+.ship-card__copy[hidden] { display: none; }
+.ship-card__pending { font-weight: 500 !important; color: var(--muted); }
+.ship-card__action { margin: var(--s5) 0 0; }
+@media (max-width: 29.99em) { .ship-card__action .btn { width: 100%; } }
+.ship-card__note { margin: var(--s5) 0 0; color: var(--muted); font-size: 0.875rem; }
+
+/* Other states: email not confirmed, nothing linked yet */
+.track-state { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--s4); align-items: start; margin: 0 0 var(--s5); padding: var(--s5); background: #fff; border: 0; border-radius: var(--radius-lg); box-shadow: var(--card-shadow); }
+.track-state__icon { display: inline-flex; color: var(--accent); }
+.track-state__icon .icon { width: 28px; height: 28px; }
+.track-state__title { margin: 0 0 var(--s2); font-size: var(--fs-h3); font-weight: 600; }
+.track-state p { margin: 0 0 var(--s3); max-width: 44rem; }
+.track-state__actions { display: flex; flex-wrap: wrap; gap: var(--s2); margin-top: var(--s4); }
+@media (max-width: 29.99em) { .track-state { grid-template-columns: 1fr; } .track-state__actions .btn { flex: 1 1 100%; } }
+
+.track__how { max-width: 52rem; margin: var(--s6) 0 0; color: var(--muted); font-size: 0.875rem; line-height: 1.6; }
+.track__how strong { color: var(--ink); }
+.track__how a { color: var(--ink); font-weight: 500; text-decoration: underline; text-underline-offset: 2px; }
+
+/* Before a search: the customer's tracking numbers, each with Copy (2026-10-22) */
+.track-numbers { padding: var(--s5) var(--s4); background: #fff; border-radius: var(--radius-lg); box-shadow: var(--card-shadow); }
+.track-numbers__title { margin: 0 0 var(--s1); font-size: 1.125rem; font-weight: 600; }
+.track-numbers__intro { margin: 0 0 var(--s4); color: var(--muted); font-size: 0.875rem; }
+.track-numbers__list { display: grid; margin: 0; padding: 0; list-style: none; }
+.track-numbers__item { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s2) var(--s4); padding: var(--s3) 0; border-top: 1px solid var(--line); }
+.track-numbers__vehicle { font-weight: 600; overflow-wrap: anywhere; }
+.track-numbers__code { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
+.track-numbers__code .ship-card__copy { margin-left: 0; }
+.track-numbers__pending { color: var(--muted); font-size: 0.875rem; }
+@media (min-width: 48em) { .track-numbers { padding: var(--s6); } }
+
+/* After Track: the vehicle (photo and a few details) above the status bar */
+.ship-card__vehicle { display: grid; gap: var(--s4); margin-bottom: var(--s5); }
+.ship-card__photo { overflow: hidden; aspect-ratio: 4 / 3; background: var(--tint); border-radius: var(--radius); }
+.ship-card__photo img { display: block; width: 100%; height: 100%; max-width: none; object-fit: cover; }
+.ship-card__no-photo { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--s2); height: 100%; color: var(--muted); font-size: 0.875rem; }
+.ship-card__no-photo .icon { width: 34px; height: 34px; stroke-width: 1.25; }
+.ship-card__intro .ship-card__head { margin-bottom: var(--s3); }
+.ship-card__specs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s2) var(--s4); margin: 0; }
+.ship-card__specs div { min-width: 0; }
+.ship-card__specs dt { color: var(--muted); font-size: 0.75rem; }
+.ship-card__specs dd { margin: 0; font-weight: 500; overflow-wrap: anywhere; }
+@media (min-width: 40em) { .ship-card__vehicle { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); align-items: start; gap: var(--s5); } .ship-card__specs { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.track-search__found > span { flex: 1 1 12rem; min-width: 0; }   /* the tick stays beside the text on phones */
+
+/* 2026-10-22: the status comes first in the update card, then the vehicle; the shipping line the business uses */
+.ship-card__eyebrow { margin: 0; font-size: 1.25rem; font-weight: 600; }
+.ship-card .ship-bar { margin-bottom: var(--s6); }
+.ship-card__vehicle { padding-top: var(--s5); border-top: 1px solid var(--line); }
+.ship-card__intro .ship-card__title { margin: 0 0 var(--s3); font-size: 1.125rem; }
+.track-partner { display: flex; align-items: flex-start; gap: var(--s2); margin: var(--s4) 0 0; padding-top: var(--s3); color: var(--ink); font-size: 0.875rem; line-height: 1.5; border-top: 1px solid var(--line); }
+.track-partner .icon { flex: none; width: 18px; height: 18px; margin-top: 1px; color: var(--accent); }
+.track-partner a { color: var(--ink); font-weight: 500; text-decoration: underline; text-underline-offset: 2px; }

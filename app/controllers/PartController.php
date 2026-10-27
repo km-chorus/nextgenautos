@@ -27,6 +27,8 @@ final class PartController
 
     /** Blank fitment rows offered on the form (more can be added with "Add another vehicle"). */
     public const BLANK_FITMENT_ROWS = 2;
+    /** Blank part-number rows offered on the form (spec 27). */
+    public const BLANK_NUMBER_ROWS = 2;
 
     public function __construct(private ?PartService $service = null)
     {
@@ -42,7 +44,8 @@ final class PartController
 
             return $data + [
                 'filters'  => $filters,
-                'filtered' => $filters['q'] !== '' || $filters['category'] !== null || $filters['brand'] !== null || $filters['published'] !== 'all' || $filters['stock'] !== 'all',
+                'filtered' => $filters['q'] !== '' || $filters['category'] !== null || $filters['brand'] !== null || $filters['published'] !== 'all' || $filters['stock'] !== 'all'
+                    || $filters['price'] !== 'all' || $filters['fits'] !== 'all',
                 'flash'    => flash_take(),
             ];
         });
@@ -53,8 +56,8 @@ final class PartController
     {
         return $this->run($admin, function (PartService $service) use ($admin, $method, $post, $files, $server, $ip, $userAgent, $requireHttpUpload): array {
             $view = [
-                'part' => null, 'values' => self::blankValues(), 'fitments' => [], 'errors' => [],
-                'categoryChoices' => $service->categoryChoices(), 'brandChoices' => $service->brandChoices(),
+                'part' => null, 'values' => self::blankValues(), 'numbers' => [], 'fitments' => [], 'errors' => [],
+                'categoryChoices' => $service->categoryChoices(), 'brandChoices' => $service->brandChoices(), 'copySources' => $service->copySources(),
             ];
             if ($method !== 'POST') {
                 return $view;
@@ -64,6 +67,9 @@ final class PartController
             }
             if (!csrf_verify($post[CSRF_FIELD_NAME] ?? null)) {
                 return $this->csrfFailure($admin, $ip, $userAgent) + $this->keepTyped($view, $post);
+            }
+            if (($post['form_action'] ?? null) === 'copy_fitments') {
+                return $this->copied($service, $view, $post, null);
             }
             $result = $service->createPart($post, self::photos($files), (int) $admin['id'], $ip, $userAgent, $requireHttpUpload);
             if ($result['status'] === PartService::RESULT_OK) {
@@ -86,7 +92,8 @@ final class PartController
                 return $this->notFound();
             }
             $view = [
-                'part' => $part, 'values' => self::valuesFromRecord($part), 'errors' => [],
+                'part' => $part, 'values' => self::valuesFromRecord($part), 'numbers' => $part['numbers'], 'errors' => [],
+                'copySources' => $service->copySources($id),
                 'fitments' => array_map(static fn (array $f): array => ['brand_id' => (string) $f['brand_id'], 'model' => (string) ($f['model'] ?? ''),
                     'year_from' => (string) ($f['year_from'] ?? ''), 'year_to' => (string) ($f['year_to'] ?? '')], $part['fitments']),
                 'categoryChoices' => $service->categoryChoices((int) $part['category_id']),
@@ -101,6 +108,9 @@ final class PartController
             }
             if (!csrf_verify($post[CSRF_FIELD_NAME] ?? null)) {
                 return $this->csrfFailure($admin, $ip, $userAgent) + $this->keepTyped($view, $post);
+            }
+            if (($post['form_action'] ?? null) === 'copy_fitments') {
+                return $this->copied($service, $view, $post, $id);
             }
             $result = $service->updatePart($id, $post, self::photos($files), (int) $admin['id'], $ip, $userAgent, $requireHttpUpload);
             switch ($result['status']) {
@@ -242,19 +252,32 @@ final class PartController
     private static function listUrl(array $post): string
     {
         $f = PartValidator::filters(['q' => $post['q'] ?? null, 'category' => $post['f_category'] ?? null, 'brand' => $post['f_brand'] ?? null,
-            'published' => $post['f_published'] ?? null, 'stock' => $post['f_stock'] ?? null, 'page' => $post['page'] ?? null]);
-        $query = array_filter(['q' => $f['q'], 'category' => (string) ($f['category'] ?? ''), 'brand' => (string) ($f['brand'] ?? ''),
-            'published' => $f['published'] === 'all' ? '' : $f['published'], 'stock' => $f['stock'] === 'all' ? '' : $f['stock'],
-            'page' => $f['page'] > 1 ? (string) $f['page'] : ''], 'strlen');
+            'published' => $post['f_published'] ?? null, 'stock' => $post['f_stock'] ?? null, 'price' => $post['f_price'] ?? null,
+            'fits' => $post['f_fits'] ?? null, 'page' => $post['page'] ?? null]);
+        $query = self::filterQuery($f);
 
         return 'parts.php' . ($query === [] ? '' : '?' . http_build_query($query));
+    }
+
+    /**
+     * The list's query string from validated filters (only values that differ from "all" / page 1).
+     *
+     * @param array<string,mixed> $f PartValidator::filters() result
+     * @return array<string,string>
+     */
+    public static function filterQuery(array $f): array
+    {
+        return array_filter(['q' => $f['q'], 'category' => (string) ($f['category'] ?? ''), 'brand' => (string) ($f['brand'] ?? ''),
+            'published' => $f['published'] === 'all' ? '' : $f['published'], 'stock' => $f['stock'] === 'all' ? '' : $f['stock'],
+            'price' => $f['price'] === 'all' ? '' : $f['price'], 'fits' => $f['fits'] === 'all' ? '' : $f['fits'],
+            'page' => $f['page'] > 1 ? (string) $f['page'] : ''], 'strlen');
     }
 
     /** @return array<string,string> */
     private static function blankValues(): array
     {
-        return ['category_id' => '', 'name' => '', 'part_number' => '', 'condition' => 'new', 'price' => '', 'currency' => PartValidator::DEFAULT_CURRENCY,
-            'stock_status' => 'in_stock', 'description' => '', 'is_published' => '0'];
+        return ['category_id' => '', 'name' => '', 'condition' => '', 'price' => '', 'currency' => PartValidator::DEFAULT_CURRENCY,
+            'stock_status' => '', 'description' => '', 'is_published' => '0'];
     }
 
     /** @return array<string,string> */
@@ -262,8 +285,8 @@ final class PartController
     {
         $t = static fn (string $k): string => (string) ($part[$k] ?? '');
 
-        return ['category_id' => $t('category_id'), 'name' => $t('name'), 'part_number' => $t('part_number'), 'condition' => $t('condition'),
-            'price' => number_format((float) $part['price'], 2, '.', ''), 'currency' => $t('currency'), 'stock_status' => $t('stock_status'),
+        return ['category_id' => $t('category_id'), 'name' => $t('name'), 'condition' => $t('condition'),
+            'price' => $part['price'] === null ? '' : number_format((float) $part['price'], 2, '.', ''), 'currency' => $t('currency'), 'stock_status' => $t('stock_status'),
             'description' => $t('description'), 'is_published' => $t('is_published')];
     }
 
@@ -276,6 +299,30 @@ final class PartController
             }
         }
         $view['fitments'] = PartValidator::fitments($post['fitments'] ?? [])[0];
+        $view['numbers'] = PartValidator::partNumbers($post['part_numbers'] ?? [])[0];
+
+        return $view;
+    }
+
+    /**
+     * "Copy compatible vehicles from another part" (spec 27): the form comes back with everything typed, plus the copied
+     * rows. Nothing is saved and no photo is processed.
+     */
+    private function copied(PartService $service, array $view, array $post, ?int $exceptId): array
+    {
+        $view = $this->keepTyped($view, $post);
+        $copy = $service->copyFitments($post['copy_from'] ?? null, $view['fitments'], $exceptId);
+        $view['fitments'] = $copy['rows'];
+        $view['copyNotice'] = $copy['error'] !== null && $copy['added'] === 0
+            ? ['type' => 'error', 'text' => $copy['error']]
+            : ['type' => $copy['error'] === null ? 'success' : 'warning',
+               'text' => $copy['error'] ?? ($copy['added'] === 0
+                   ? 'Every compatible vehicle of ' . $copy['source'] . ' is already in the list.'
+                   : $copy['added'] . ' compatible vehicle(s) copied from ' . $copy['source'] . '. Check them, then save.')];
+        if (($view['part'] ?? null) !== null) {
+            $view['flash'] = null;
+        }
+        $view['copySelected'] = (string) ($post['copy_from'] ?? '');
 
         return $view;
     }
@@ -284,9 +331,13 @@ final class PartController
     {
         $values = [];
         foreach ($result['values'] as $key => $value) {
+            if ($key === 'part_numbers') {
+                continue;
+            }
             $values[$key] = (string) ($value ?? '');
         }
         $view['values'] = $values + $view['values'];
+        $view['numbers'] = $result['values']['part_numbers'] ?? [];
         $view['fitments'] = $result['fitments'];
         $view['errors'] = $result['errors'];
         $view['http'] = 200;

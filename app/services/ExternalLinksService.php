@@ -22,6 +22,8 @@ final class ExternalLinksService
     /** The approved tracking provider page (the `tracking_provider_url` setting is seeded with this address). */
     public const TRACKING_PROVIDER_DEFAULT = 'https://www.hapag-lloyd.com/en/online-business/track/track-by-container-solution.html';
     private const TRACKING_PROVIDER_HOSTS = ['www.hapag-lloyd.com', 'hapag-lloyd.com'];
+    /** The shipping line the business ships with (owner, 2026-10-22). Only its tracking addresses are accepted above. */
+    public const TRACKING_PROVIDER_NAME = 'Hapag-Lloyd';
     public function __construct(private ?SettingsRepository $settings = null)
     {
     }

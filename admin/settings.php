@@ -36,6 +36,7 @@ if (in_array($view['problem'], ['forbidden', 'error'], true)): ?>
     $errors = $view['errors'];
     $formMessage = $view['formMessage'];
     $flash = $view['flash'] ?? null;
+    $accidentEnabled = !empty($view['accidentEnabled']);
 ?>
 <div class="stack stack--lg">
     <div class="page-header">

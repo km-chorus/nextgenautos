@@ -357,7 +357,7 @@ $admin = ['id' => 1, 'name' => 'Admin', 'role' => 'administrator'];
 $prevLog = ini_set('error_log', $work . '/e5.log');
 putenv('APP_ENV=production'); $_ENV['APP_ENV'] = 'production';
 $err = (new TeamController($failing))->index($admin, []);
-putenv('APP_ENV=development'); $_ENV['APP_ENV'] = 'development';
+putenv('APP_ENV=development'); $_ENV['APP_ENV'] = 'development'; putenv('APP_DEBUG=1');   // the developer detail needs APP_DEBUG=1
 $errDev = (new TeamController($failing))->index($admin, []);
 ini_set('error_log', (string) $prevLog);
 check('production: a failing service gives a 500, a generic message and NO detail; the technical text is only in the log', $err['http'] === 500 && $err['detail'] === null && !preg_match('/SQLSTATE|secret|path|file\.php/i', json_encode($err)) && str_contains((string) @file_get_contents($work . '/e5.log'), 'SQLSTATE'));

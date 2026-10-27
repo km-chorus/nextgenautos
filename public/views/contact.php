@@ -22,7 +22,7 @@ $error = static fn (string $name): ?string => $form['errors'][$name] ?? null;
 $field = static fn (string $name, string $label, string $type, bool $required, string $autocomplete, array $options = []): string
     => public_enquiry_field('message', $name, $label, $type, $required, $autocomplete, $value($name), $error($name), '', $options);
 ?>
-<?= public_page_header('Contact Us', 'Get in touch', 'Questions about a vehicle, car parts or shipping to Ghana? Send us a message or chat with us on WhatsApp.') ?>
+<?= public_page_header('Contact Us') ?>
 
 <div class="container contact">
     <section class="contact__details" aria-labelledby="details-title">
@@ -36,10 +36,19 @@ $field = static fn (string $name, string $label, string $type, bool $required, s
 <?php if ($phones !== [] || $d['email'] !== null || $d['hours'] !== null): ?>
         <dl class="contact__list">
 <?php foreach ($phones as $phone): ?>
+<?php if (str_starts_with($phone['tel'], '+233')):
+    /* Owner request 2026-10-23: the Ghana number is for WhatsApp only (WhatsApp colours, a chat link, no phone call). */ ?>
+            <div class="contact__item contact__item--whatsapp">
+                <dt><span class="contact__wa-icon" aria-hidden="true"><?= public_icon('message') ?></span><span>WhatsApp only</span></dt>
+                <dd><a href="<?= e((string) CompanyContactService::whatsappLink(substr($phone['tel'], 1), 'Hello ' . PUBLIC_SITE_NAME . ', I have a question.')) ?>" target="_blank" rel="noopener noreferrer"><?= e($phone['display']) ?><span class="sr-only"> (opens a WhatsApp chat in a new tab)</span></a>
+                    <span class="contact__wa-note">Messages on WhatsApp, no calls</span></dd>
+            </div>
+<?php else: ?>
             <div class="contact__item">
                 <dt><?= public_icon('phone') ?><span>Phone</span></dt>
                 <dd><a href="tel:<?= e($phone['tel']) ?>"><?= e($phone['display']) ?></a></dd>
             </div>
+<?php endif; ?>
 <?php endforeach; ?>
 <?php if ($d['email'] !== null): ?>
             <div class="contact__item">
@@ -68,14 +77,11 @@ $field = static fn (string $name, string $label, string $type, bool $required, s
 
     <section class="contact__form" id="message" aria-labelledby="message-title">
         <h2 class="contact__heading" id="message-title">Send us a message</h2>
-<?php if ($data['sent']): ?>
-        <div class="alert alert--success" role="status"><?= public_icon('check-circle') ?><p>Thank you. We have received your message and will reply soon.</p></div>
-<?php elseif ($data['token'] === null): ?>
+<?php if ($data['sent']) { public_toast($page, 'success', 'Thank you. We have received your message and will reply soon.'); } ?>
+<?php if ($data['token'] === null): ?>
         <p class="contact__soon">Online messages are unavailable right now.<?= $hasDetails ? ' Please use the contact details on this page.' : ' Please try again later.' ?></p>
 <?php else: ?>
-<?php if ($posted): ?>
-        <div class="alert alert--error" role="alert"><?= public_icon('alert-circle') ?><p><?= e($form['message']) ?></p></div>
-<?php endif; ?>
+<?php if ($posted) { public_toast($page, 'error', (string) $form['message']); } ?>
         <form class="form contact__fields" method="post" action="/contact/#message" novalidate data-guard-form>
             <?= public_enquiry_hidden('message', 'general', (string) $data['token']) ?>
             <div class="contact__row">
@@ -92,3 +98,21 @@ $field = static fn (string $name, string $label, string $type, bool $required, s
 <?php endif; ?>
     </section>
 </div>
+<?php if (!empty($d['address'])):
+    /* Office location (2026-10-23; owner decision 2026-10-26: the Google Map shows straight away, no button). The map is a
+       Google Maps frame (CSP frame-src https://www.google.com); Google may set cookies (stated on the page and in the cookie policy). */ ?>
+<div class="container contact-location">
+    <section class="contact__location" aria-labelledby="location-title">
+        <div class="contact__location-info">
+            <span class="contact__location-icon" aria-hidden="true"><?= public_icon('map-pin') ?></span>
+            <div>
+                <h2 class="contact__heading" id="location-title">Office location</h2>
+                <address class="contact__address"><?= nl2br(e($d['address'])) ?></address>
+            </div>
+        </div>
+        <div class="contact__map">
+            <iframe src="<?= e(CompanyContactService::mapEmbed($d['address'])) ?>" title="Map of the office location (Google Maps)" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
+        </div>
+    </section>
+</div>
+<?php endif; ?>

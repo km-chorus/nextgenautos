@@ -24,11 +24,7 @@ $filters = $view['filters'];
 $flash   = $view['flash'];
 
 $pageUrl = static function (int $page) use ($filters): string {
-    $query = array_filter([
-        'q' => $filters['q'], 'category' => (string) ($filters['category'] ?? ''), 'brand' => (string) ($filters['brand'] ?? ''),
-        'published' => $filters['published'] === 'all' ? '' : $filters['published'], 'stock' => $filters['stock'] === 'all' ? '' : $filters['stock'],
-        'page' => $page > 1 ? (string) $page : '',
-    ], 'strlen');
+    $query = PartController::filterQuery(['page' => $page] + $filters);
 
     return 'parts.php' . ($query === [] ? '' : '?' . http_build_query($query));
 };
@@ -36,7 +32,8 @@ $pageUrl = static function (int $page) use ($filters): string {
 $keepFilters = static function () use ($filters): string {
     $out = '';
     foreach (['q' => $filters['q'], 'f_category' => (string) ($filters['category'] ?? ''), 'f_brand' => (string) ($filters['brand'] ?? ''),
-                 'f_published' => $filters['published'], 'f_stock' => $filters['stock'], 'page' => (string) $filters['page']] as $name => $value) {
+                 'f_published' => $filters['published'], 'f_stock' => $filters['stock'], 'f_price' => $filters['price'], 'f_fits' => $filters['fits'],
+                 'page' => (string) $filters['page']] as $name => $value) {
         $out .= '<input type="hidden" name="' . $name . '" value="' . e($value) . '">';
     }
 
@@ -56,7 +53,7 @@ require dirname(__DIR__) . '/includes/admin/shell_start.php';
     <?php endif; ?>
 
     <div class="page-header">
-        <p class="page-header__text">Car parts and accessories: price, condition, stock, the vehicles each part fits, and publication on the website.</p>
+        <p class="page-header__text">Car parts and accessories: part numbers, the vehicles each part fits, price, condition, stock, and publication on the website.</p>
         <div class="cluster">
             <a class="btn btn--secondary" href="part-categories.php"><?= admin_icon('tag') ?>Categories</a>
             <a class="btn btn--primary" href="part-create.php"><?= admin_icon('plus') ?>Add Part</a>
@@ -111,6 +108,23 @@ require dirname(__DIR__) . '/includes/admin/shell_start.php';
                         <?php foreach (PartValidator::STOCK as $key => $label): ?>
                             <option value="<?= e($key) ?>"<?= $filters['stock'] === $key ? ' selected' : '' ?>><?= e($label) ?></option>
                         <?php endforeach; ?>
+                        <option value="none"<?= $filters['stock'] === 'none' ? ' selected' : '' ?>>Not set</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label class="label" for="part-price-filter">Price</label>
+                    <select class="select" id="part-price-filter" name="price">
+                        <option value="all">All</option>
+                        <option value="set"<?= $filters['price'] === 'set' ? ' selected' : '' ?>>Price set</option>
+                        <option value="none"<?= $filters['price'] === 'none' ? ' selected' : '' ?>>Price on request</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label class="label" for="part-fits-filter">Compatibility</label>
+                    <select class="select" id="part-fits-filter" name="fits">
+                        <option value="all">All</option>
+                        <option value="set"<?= $filters['fits'] === 'set' ? ' selected' : '' ?>>Vehicles entered</option>
+                        <option value="none"<?= $filters['fits'] === 'none' ? ' selected' : '' ?>>No vehicles yet</option>
                     </select>
                 </div>
                 <div class="filter-bar__actions">
@@ -146,13 +160,17 @@ require dirname(__DIR__) . '/includes/admin/shell_start.php';
                                     <td class="cell-primary">
                                         <div class="cell-text">
                                             <p class="cell-title"><a href="part-edit.php?id=<?= $id ?>"><?= e($label) ?></a></p>
-                                            <p class="cell-sub"><?= e(PartValidator::CONDITIONS[$part['condition']] ?? '') ?><?= $part['part_number'] !== null ? ' · ' . e((string) $part['part_number']) : '' ?> · <?= $published ? 'Published on website' : 'Not published' ?></p>
+                                            <p class="cell-sub"><?= e(implode(' · ', array_filter([
+                                                PartValidator::CONDITIONS[$part['condition'] ?? ''] ?? null,
+                                                $part['part_number'] !== null ? 'No. ' . $part['part_number'] . ((int) $part['number_count'] > 1 ? ' (+' . ((int) $part['number_count'] - 1) . ' more)' : '') : 'No part number',
+                                                $published ? 'Published on website' : 'Not published',
+                                            ]))) ?></p>
                                         </div>
                                     </td>
                                     <td data-label="Type"><?= e((string) $part['category_name']) ?></td>
                                     <td data-label="Fits"><?= e((string) $part['fits']) ?></td>
-                                    <td data-label="Price" class="nowrap"><?= e(admin_format_price((string) $part['price'], (string) $part['currency'])) ?></td>
-                                    <td data-label="Stock" class="nowrap"><?= e(PartValidator::STOCK[$part['stock_status']] ?? '') ?></td>
+                                    <td data-label="Price" class="nowrap"><?= $part['price'] === null ? '<span class="text-muted">On request</span>' : e(admin_format_price((string) $part['price'], (string) $part['currency'])) ?></td>
+                                    <td data-label="Stock" class="nowrap"><?= isset(PartValidator::STOCK[$part['stock_status'] ?? '']) ? e(PartValidator::STOCK[$part['stock_status']]) : '<span class="text-muted">Not set</span>' ?></td>
                                     <td class="col-actions">
                                         <div class="row-actions">
                                             <a class="btn btn--ghost btn--sm" href="part-edit.php?id=<?= $id ?>">Edit<span class="sr-only"> <?= e($label) ?></span></a>

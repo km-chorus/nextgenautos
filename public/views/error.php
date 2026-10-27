@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 /** @var array<string,mixed> $data */
 ?>
-<?= public_page_header('Something went wrong', 'Error 500', 'We could not complete your request. Please try again in a moment.') ?>
+<?= public_page_header('Something went wrong') ?>
 <div class="container section">
+    <p class="page-message">We could not complete your request. Please try again in a moment.</p>
     <?php if (!empty($data['detail'])): ?>
         <?= public_alert('warning', 'Development detail: ' . (string) $data['detail']) ?>
     <?php endif; ?>

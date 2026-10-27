@@ -23,15 +23,16 @@ $form = $data['form'];
 $photos = $v['photos'];
 $count = count($photos);
 $dutyUrl = (string) ($page['dutyUrl'] ?? '');
-$byType = ['exterior' => [], 'interior' => []];
+$accident = $v['accident'] ?? null;   // spec 23: the damage disclosure of an accident vehicle, else null
+$byType = ['exterior' => [], 'interior' => [], 'damage' => []];
 foreach ($photos as $i => $photo) {
     $byType[$photo['type']][] = $i;
 }
 $byType = array_filter($byType);   // a tab only for a type that has photos
 $tabs = count($byType) > 1;
 $firstType = (string) (array_key_first($byType) ?? 'exterior');
-$typeLabels = ['exterior' => 'Exterior', 'interior' => 'Interior'];
-$typeIcons = ['exterior' => 'camera', 'interior' => 'image'];
+$typeLabels = ['exterior' => 'Exterior', 'interior' => 'Interior', 'damage' => 'Damage'];
+$typeIcons = ['exterior' => 'camera', 'interior' => 'image', 'damage' => 'alert-circle'];
 
 /** Value for a field: what the visitor just sent (on an error), else a signed-in customer's details, else empty. */
 $value = static function (string $kind, string $field) use ($form, $data): string {
@@ -50,7 +51,11 @@ $hidden = static fn (string $kind, string $token): string => public_enquiry_hidd
 ?>
 <div class="vd">
     <div class="container vd__top">
+<?php if ($accident !== null): ?>
+        <a class="vd-back" href="/accident-vehicles/"><?= public_icon('arrow-left') ?><span>Back to Accident Vehicles</span></a>
+<?php else: ?>
         <a class="vd-back" href="/vehicles/"><?= public_icon('arrow-left') ?><span>Back to Vehicles</span></a>
+<?php endif; ?>
 
         <div class="vd__grid">
             <section class="vd-gallery" aria-label="Photos of the <?= e($v['title']) ?>" data-vd-gallery data-vd-first="<?= e($firstType) ?>">
@@ -108,9 +113,14 @@ $hidden = static fn (string $kind, string $token): string => public_enquiry_hidd
 <?php if ($v['duty']): ?>
                 <p class="vd-summary__duty">Price includes Ghana import duty.</p>
 <?php endif; ?>
+<?php if ($accident !== null): ?>
+                <p class="vd-damage-flag"><?= public_icon('alert-circle') ?><span><strong>Accident-damaged.</strong> <a href="#damage">Read the damage details</a> before you reserve.</span></p>
+<?php endif; ?>
 
 <?php if (!$v['reserved']): ?>
                 <a class="btn btn--primary vd-summary__cta" href="#reserve">Reserve this vehicle</a>
+<?php elseif ($data['whatsapp'] !== null): ?>
+                <a class="btn btn--primary vd-summary__cta" href="<?= e($data['whatsapp']) ?>" target="_blank" rel="noopener noreferrer">Ask about this vehicle<span class="sr-only"> on WhatsApp (opens WhatsApp in a new tab)</span></a>
 <?php else: ?>
                 <a class="btn btn--primary vd-summary__cta" href="#contact">Ask about this vehicle</a>
 <?php endif; ?>
@@ -130,11 +140,12 @@ $hidden = static fn (string $kind, string $token): string => public_enquiry_hidd
                 </dl>
 
                 <div class="vd-actions">
-<?php if (!$v['reserved']): ?>
-                    <a class="btn btn--outline vd-actions__btn" href="#contact"><?= public_icon('mail') ?><span>Ask a question</span></a>
-<?php endif; ?>
+<?php $favSlug = (string) $v['slug']; $favTitle = (string) $v['title']; $favVariant = 'detail'; require dirname(__DIR__, 2) . '/includes/favourite_button.php'; ?>
+<?php /* "Ask a question" opens WhatsApp with the Ghana number and a pre-filled message (owner request 2026-10-22); the contact form below remains for visitors without WhatsApp. */ ?>
 <?php if ($data['whatsapp'] !== null): ?>
-                    <a class="btn btn--outline vd-actions__btn" href="<?= e($data['whatsapp']) ?>" target="_blank" rel="noopener noreferrer"><?= public_icon('message') ?><span>WhatsApp</span><span class="sr-only"> us about this vehicle (opens WhatsApp in a new tab)</span></a>
+                    <a class="btn btn--outline vd-actions__btn" href="<?= e($data['whatsapp']) ?>" target="_blank" rel="noopener noreferrer"><?= public_icon('message') ?><span>Ask a question</span><span class="sr-only"> on WhatsApp about this vehicle (opens WhatsApp in a new tab)</span></a>
+<?php elseif (!$v['reserved']): ?>
+                    <a class="btn btn--outline vd-actions__btn" href="#contact"><?= public_icon('mail') ?><span>Ask a question</span></a>
 <?php endif; ?>
 <?php if ($dutyUrl !== ''): ?>
                     <a class="btn btn--outline vd-actions__btn" href="<?= e($dutyUrl) ?>" target="_blank" rel="noopener noreferrer"><?= public_icon('calculator') ?><span>Import duty</span><span class="sr-only">: calculate Ghana import duty (opens the external duty calculator in a new tab)</span></a>
@@ -143,6 +154,30 @@ $hidden = static fn (string $kind, string $token): string => public_enquiry_hidd
             </div>
         </div>
     </div>
+
+<?php if ($accident !== null): ?>
+    <section class="vd-damage" id="damage" aria-labelledby="vd-damage-title">
+        <div class="container">
+            <h2 class="vd-spec-section__title" id="vd-damage-title">Accident damage</h2>
+            <div class="vd-damage__grid">
+                <div class="vd-damage__text">
+                    <p><?= nl2br(e($accident['description'])) ?></p>
+<?php if (isset($byType['damage'])): ?>
+                    <p class="vd-damage__photos">See the <strong>Damage</strong> tab of the photos above.</p>
+<?php endif; ?>
+                </div>
+                <dl class="vd-spec-card__rows vd-damage__facts">
+<?php if ($accident['areas'] !== []): ?>
+                    <div class="vd-spec-card__row"><dt>Damaged areas</dt><dd><?= e(implode(', ', $accident['areas'])) ?></dd></div>
+<?php endif; ?>
+<?php foreach ($accident['facts'] as [$label, $val]): ?>
+                    <div class="vd-spec-card__row"><dt><?= e($label) ?></dt><dd><?= e($val) ?></dd></div>
+<?php endforeach; ?>
+                </dl>
+            </div>
+        </div>
+    </section>
+<?php endif; ?>
 
     <section class="vd-spec-section" aria-labelledby="vd-specs-title">
         <div class="container">
@@ -184,20 +219,45 @@ $hidden = static fn (string $kind, string $token): string => public_enquiry_hidd
         </div>
     </section>
 
+<?php
+// Spec 28: parts listed as compatible with this vehicle and marked In stock in the admin. Left out when there are none.
+$vehicleParts = $data['vehicleParts'] ?? null;
+if ($vehicleParts !== null && $vehicleParts['cards'] !== []):
+    $whatsappDigits = $data['partsWhatsapp'] ?? null;
+    $vehicleQuery = ['vehicle' => (string) $v['slug']];   // the contact form names this exact vehicle
+    $vehicleLabel = (string) $v['title'];
+?>
+    <section class="vd-parts" id="parts" aria-labelledby="vd-parts-title">
+        <div class="container">
+            <header class="vd-parts__head">
+                <div>
+                    <h2 class="vd-spec-section__title" id="vd-parts-title">Parts for this vehicle</h2>
+                    <p class="vd-parts__intro">Available parts listed as compatible with the <?= e($v['title']) ?>.</p>
+                </div>
+<?php if ($vehicleParts['total'] > count($vehicleParts['cards'])): ?>
+                <a class="vd-parts__all" href="<?= e($vehicleParts['all']) ?>">See all <?= (int) $vehicleParts['total'] ?> parts<?= public_icon('arrow-right') ?></a>
+<?php endif; ?>
+            </header>
+            <ul class="parts-grid">
+<?php foreach ($vehicleParts['cards'] as $p): ?>
+<?php $cardHidden = false; require dirname(__DIR__, 2) . '/includes/part_card.php'; ?>
+<?php endforeach; ?>
+            </ul>
+        </div>
+    </section>
+<?php endif; ?>
+
     <div class="container vd-forms">
         <section class="vd-form" id="reserve" aria-labelledby="reserve-title">
             <h2 class="vd-form__title" id="reserve-title">Reserve this vehicle</h2>
-<?php if ($data['sent'] === 'reserve'): ?>
-            <div class="alert alert--success" role="status"><?= public_icon('check-circle') ?><p>Thank you. We have received your reservation request and will contact you to confirm.</p></div>
-<?php elseif ($v['reserved']): ?>
+<?php if ($data['sent'] === 'reserve') { public_toast($page, 'success', 'Thank you. We have received your reservation request and will contact you to confirm.'); } ?>
+<?php if ($v['reserved']): ?>
             <p class="vd-form__note">This vehicle is currently reserved. You can still <a href="#contact">ask us a question</a> about it.</p>
 <?php elseif ($data['tokens']['reserve'] === null): ?>
             <p class="vd-form__note">Online requests are unavailable right now. Please contact us by phone or WhatsApp.</p>
 <?php else: ?>
             <p class="vd-form__intro">Send a request and our team will call you to confirm. The vehicle is reserved for you once we confirm it. No payment is taken online.</p>
-<?php if ($form['kind'] === 'reserve' && $form['message'] !== null): ?>
-            <div class="alert alert--error" role="alert"><?= public_icon('alert-circle') ?><p><?= e($form['message']) ?></p></div>
-<?php endif; ?>
+<?php if ($form['kind'] === 'reserve' && $form['message'] !== null) { public_toast($page, 'error', (string) $form['message']); } ?>
             <form class="form vd-form__form" method="post" action="<?= e($v['url']) ?>#reserve" novalidate data-guard-form>
                 <?= $hidden('reserve', (string) $data['tokens']['reserve']) ?>
                 <?= $field('reserve', 'name', 'Full name', 'text', true, 'name') ?>
@@ -211,15 +271,12 @@ $hidden = static fn (string $kind, string $token): string => public_enquiry_hidd
 
         <section class="vd-form" id="contact" aria-labelledby="contact-title">
             <h2 class="vd-form__title" id="contact-title">Ask about this vehicle</h2>
-<?php if ($data['sent'] === 'contact'): ?>
-            <div class="alert alert--success" role="status"><?= public_icon('check-circle') ?><p>Thank you. We have received your message and will reply soon.</p></div>
-<?php elseif ($data['tokens']['contact'] === null): ?>
+<?php if ($data['sent'] === 'contact') { public_toast($page, 'success', 'Thank you. We have received your message and will reply soon.'); } ?>
+<?php if ($data['tokens']['contact'] === null): ?>
             <p class="vd-form__note">Online requests are unavailable right now. Please contact us by phone or WhatsApp.</p>
 <?php else: ?>
             <p class="vd-form__intro">Questions about the vehicle, shipping or the price? Send us a message.</p>
-<?php if ($form['kind'] === 'contact' && $form['message'] !== null): ?>
-            <div class="alert alert--error" role="alert"><?= public_icon('alert-circle') ?><p><?= e($form['message']) ?></p></div>
-<?php endif; ?>
+<?php if ($form['kind'] === 'contact' && $form['message'] !== null) { public_toast($page, 'error', (string) $form['message']); } ?>
             <form class="form vd-form__form" method="post" action="<?= e($v['url']) ?>#contact" novalidate data-guard-form>
                 <?= $hidden('contact', (string) $data['tokens']['contact']) ?>
                 <?= $field('contact', 'name', 'Full name', 'text', true, 'name') ?>

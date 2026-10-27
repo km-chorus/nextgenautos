@@ -12,7 +12,7 @@
     var tabsBox = gallery.querySelector('[data-vd-tabs]');
     var tabs = tabsBox ? Array.prototype.slice.call(tabsBox.querySelectorAll('[data-vd-tab]')) : [];
     var countText = gallery.querySelector('[data-vd-count-text]');
-    var labels = { exterior: 'Exterior', interior: 'Interior' };
+    var labels = { exterior: 'Exterior', interior: 'Interior', damage: 'Damage' };
     var type = gallery.getAttribute('data-vd-first') || 'exterior';
     var pos = 0;   // position within the current type
 

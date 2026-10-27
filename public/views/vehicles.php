@@ -13,7 +13,8 @@ declare(strict_types=1);
 $filters = $data['filters'];
 $result = $data['result'];
 $searchOptions = $data['searchOptions'];
-$vehiclesPath = $router->byName('vehicles')['path'];
+$accidentPage = ($data['mode'] ?? 'normal') === 'accident';      // spec 23: the Accident Vehicles page uses this layout too
+$vehiclesPath = $router->byName($accidentPage ? 'accident-vehicles' : 'vehicles')['path'];
 $active = \PublicVehicleSearchValidator::hasFilters($filters);
 $base = \PublicVehicleSearchValidator::toQuery($filters);
 
@@ -36,8 +37,21 @@ for ($n = 1; $n <= $result['pages']; $n++) {
 }
 $sorts = ['newest' => 'Newest', 'price_asc' => 'Price: Low to High', 'price_desc' => 'Price: High to Low'];
 ?>
-<?= public_page_header('Vehicles for Sale', 'Inventory', 'Explore vehicles sourced from Canada and available through Amponsah Autos.') ?>
+<?php if ($accidentPage): ?>
+<?= public_page_header('Accident Vehicles') ?>
+<?php else: ?>
+<?= public_page_header('Vehicles for Sale') ?>
+<?php endif; ?>
 <div class="container inventory" data-inventory>
+<?php if ($accidentPage): ?>
+    <aside class="inventory__notice" aria-labelledby="accident-notice-title">
+        <span class="inventory__notice-icon" aria-hidden="true"><?= public_icon('alert-triangle') ?></span>
+        <div>
+            <p class="inventory__notice-title" id="accident-notice-title">Every vehicle on this page has accident damage.</p>
+            <p class="inventory__notice-text">Read the damage details and look at the damage photos on each vehicle's page before you reserve it, and ask us anything you are unsure about.</p>
+        </div>
+    </aside>
+<?php endif; ?>
 
     <div class="inventory__layout">
         <div class="inv-backdrop" data-inv-backdrop hidden></div>
@@ -70,8 +84,13 @@ $sorts = ['newest' => 'Newest', 'price_asc' => 'Price: Low to High', 'price_desc
                 <p>Try adjusting your search criteria or clearing some filters.</p>
                 <a class="btn btn--secondary" href="<?= e($vehiclesPath) ?>">Clear Filters</a>
 <?php else: ?>
+<?php if ($accidentPage): ?>
+                <h2 class="inventory__empty-title">No accident vehicles right now</h2>
+                <p>There are no accident-damaged vehicles on offer at the moment. You can browse our <a href="/vehicles/">other vehicles</a>.</p>
+<?php else: ?>
                 <h2 class="inventory__empty-title">Vehicles Coming Soon</h2>
                 <p>We're preparing our latest available vehicles. Check back soon.</p>
+<?php endif; ?>
 <?php endif; ?>
             </div>
 <?php else: ?>

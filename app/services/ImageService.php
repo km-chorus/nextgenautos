@@ -14,8 +14,14 @@ use Intervention\Image\ImageManager;
  *   - decodes the image with Intervention Image + GD (EXIF orientation is applied),
  *   - scales it DOWN to fit 1600 x 1600 (never up, aspect ratio preserved),
  *   - encodes it as WebP (quality 78, stepping down only if the file is unusually large),
- *   - makes a 640 px WebP thumbnail,
- *   - stores both under uploads/vehicles/ with random names.
+ *   - makes a WebP thumbnail,
+ *   - stores both under uploads/<kind>/ with random names.
+ *
+ * Size limits are HARD (owner requirement 2026-10-26: "verify everything on the backend"). Browser-side compression is
+ * never relied on. Each kind has a byte ceiling for the main image and for the thumbnail. When the lowest quality step is
+ * still too large, the image is made smaller (85% per round) and encoded again; when it cannot fit without going below
+ * the kind's smallest useful size, the upload is refused. After writing, every file is read back from disk and checked
+ * (real WebP, size within the ceiling, dimensions within the box); a file that fails is deleted and the upload refused.
  *
  * Re-encoding discards all metadata (EXIF, GPS location, camera data), and the stored
  * file is a pixel re-encode, so nothing the uploader embedded in the original survives.
@@ -28,9 +34,11 @@ use Intervention\Image\ImageManager;
  */
 final class ImageService
 {
-    public const THUMB_QUALITY = 70;
     /** Main image quality: starts at 78 and steps down only when the file is larger than the kind's target size. */
     private const QUALITY_STEPS = [78, 68, 58];
+    private const THUMB_QUALITY_STEPS = [70, 60, 50];
+    /** Each shrinking round keeps this share of the long side. */
+    private const SHRINK = 0.85;
     private const MEMORY_LIMIT_BYTES = 402653184; // 384 MB while decoding one image (20 MP cap)
     public const KIND_VEHICLE = 'vehicle';
     public const KIND_TEAM = 'team';
@@ -43,12 +51,14 @@ final class ImageService
      *   dir     application-relative storage folder
      *   box     the main image is scaled DOWN to fit this width x height (never up, ratio kept)
      *   thumb   thumbnail box
-     *   target  re-encode at lower quality only when the first result is larger than this many bytes
+     *   target  hard ceiling in bytes for the main image (lower quality first, then smaller dimensions)
+     *   thumb_target  hard ceiling in bytes for the thumbnail
+     *   min     the main image is never shrunk below this long side to meet the ceiling (the upload is refused instead)
      */
     private const PROFILES = [
-        self::KIND_VEHICLE => ['dir' => 'uploads/vehicles', 'box' => [1600, 1600], 'thumb' => [640, 640], 'target' => 716800],
-        self::KIND_TEAM    => ['dir' => 'uploads/team', 'box' => [1200, 1600], 'thumb' => [400, 533], 'target' => 460800],
-        self::KIND_PART    => ['dir' => 'uploads/parts', 'box' => [1600, 1600], 'thumb' => [640, 640], 'target' => 716800],
+        self::KIND_VEHICLE => ['dir' => 'uploads/vehicles', 'box' => [1600, 1600], 'thumb' => [640, 640], 'target' => 716800, 'thumb_target' => 102400, 'min' => 800],
+        self::KIND_TEAM    => ['dir' => 'uploads/team', 'box' => [1200, 1600], 'thumb' => [400, 533], 'target' => 460800, 'thumb_target' => 61440, 'min' => 600],
+        self::KIND_PART    => ['dir' => 'uploads/parts', 'box' => [1600, 1600], 'thumb' => [640, 640], 'target' => 716800, 'thumb_target' => 102400, 'min' => 600],
     ];
 
     private string $directory;
@@ -145,21 +155,8 @@ final class ImageService
             $manager = ImageManager::gd();   // EXIF orientation is applied while reading
 
             $profile = self::PROFILES[$this->kind];
-            $main = $manager->read($sourcePath)->scaleDown(width: $profile['box'][0], height: $profile['box'][1]);
-            $mainBytes = '';
-            foreach (self::QUALITY_STEPS as $quality) {
-                $mainBytes = (string) $main->toWebp(quality: $quality);
-                if (strlen($mainBytes) <= $profile['target']) {
-                    break;
-                }
-            }
-            $width = $main->width();
-            $height = $main->height();
-            unset($main);
-
-            $thumb = $manager->read($sourcePath)->scaleDown(width: $profile['thumb'][0], height: $profile['thumb'][1]);
-            $thumbBytes = (string) $thumb->toWebp(quality: self::THUMB_QUALITY);
-            unset($thumb);
+            [$mainBytes, $width, $height] = self::encodeWithin($manager, $sourcePath, $profile['box'], $profile['target'], self::QUALITY_STEPS, $profile['min']);
+            [$thumbBytes] = self::encodeWithin($manager, $sourcePath, $profile['thumb'], $profile['thumb_target'], self::THUMB_QUALITY_STEPS, 200);
 
             if (!$this->isWebp($mainBytes) || !$this->isWebp($thumbBytes)) {
                 throw new RuntimeException('Encoder did not produce WebP data.');
@@ -172,6 +169,10 @@ final class ImageService
             $written[] = $mainPath;
             $this->writeNew($thumbPath, $thumbBytes);
             $written[] = $thumbPath;
+
+            // Read back what is really on disk; never trust the encoder's word either.
+            self::verifyStored($mainPath, $profile['target'], $profile['box']);
+            self::verifyStored($thumbPath, $profile['thumb_target'], $profile['thumb']);
 
             return [
                 'path'   => $profile['dir'] . '/' . $id . '.webp',
@@ -232,6 +233,71 @@ final class ImageService
     public static function thumbPath(string $relativePath): string
     {
         return preg_replace('/\.webp$/', '-t.webp', $relativePath) ?? $relativePath;
+    }
+
+    /**
+     * The hard limits of a kind.
+     *
+     * @return array{target:int,thumb_target:int,box:array{0:int,1:int},thumb:array{0:int,1:int}}
+     */
+    public static function limits(string $kind): array
+    {
+        if (!isset(self::PROFILES[$kind])) {
+            throw new InvalidArgumentException('Unknown image kind.');
+        }
+        $p = self::PROFILES[$kind];
+
+        return ['target' => $p['target'], 'thumb_target' => $p['thumb_target'], 'box' => $p['box'], 'thumb' => $p['thumb']];
+    }
+
+    /**
+     * WebP bytes no larger than $maxBytes: each quality step at the box size, then the same at 85% of the size, and so
+     * on. Throws when the long side would drop below $minLongSide (the image cannot be stored at a useful size).
+     *
+     * @param array{0:int,1:int} $box
+     * @param list<int> $qualities
+     * @return array{0:string,1:int,2:int} bytes, width, height
+     */
+    private static function encodeWithin(ImageManager $manager, string $source, array $box, int $maxBytes, array $qualities, int $minLongSide): array
+    {
+        [$boxW, $boxH] = $box;
+        for ($round = 0; $round < 12; $round++) {
+            $image = $manager->read($source)->scaleDown(width: max(1, $boxW), height: max(1, $boxH));
+            $width = $image->width();
+            $height = $image->height();
+            if ($round > 0 && max($width, $height) < $minLongSide) {
+                break;
+            }
+            foreach ($qualities as $quality) {
+                $bytes = (string) $image->toWebp(quality: $quality);
+                if (strlen($bytes) <= $maxBytes) {
+                    return [$bytes, $width, $height];
+                }
+            }
+            unset($image);
+            // Shrink from the size actually reached (a small source would otherwise never get smaller).
+            $boxW = (int) floor($width * self::SHRINK);
+            $boxH = (int) floor($height * self::SHRINK);
+        }
+        throw new RuntimeException('The image cannot be compressed within ' . $maxBytes . ' bytes.');
+    }
+
+    /**
+     * The stored file must be a real WebP, within the byte ceiling and the box. Throws otherwise (the caller deletes it).
+     *
+     * @param array{0:int,1:int} $box
+     */
+    private static function verifyStored(string $path, int $maxBytes, array $box): void
+    {
+        clearstatcache(true, $path);
+        $size = @filesize($path);
+        $info = @getimagesize($path);
+        if ($size === false || $size < 1 || $size > $maxBytes) {
+            throw new RuntimeException('Stored image is over its size limit.');
+        }
+        if ($info === false || $info[2] !== IMAGETYPE_WEBP || $info[0] < 1 || $info[1] < 1 || $info[0] > $box[0] || $info[1] > $box[1]) {
+            throw new RuntimeException('Stored image failed verification.');
+        }
     }
 
     /** Creates a new file and fails if it already exists (a name can never overwrite another image). */

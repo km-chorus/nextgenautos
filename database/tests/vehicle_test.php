@@ -150,6 +150,8 @@ echo "Database state\n";
 // The owner may already have entered real vehicles: every count below is relative to this baseline, which is never touched.
 $baseCount = $repo->countAll();
 $baseImages = (int) $pdo->query("SELECT COUNT(*) FROM vehicle_images")->fetchColumn();   // real photographs may already exist
+$baseShipments = (int) $pdo->query('SELECT COUNT(*) FROM shipments')->fetchColumn();   // real shipments and enquiries may exist too
+$baseEnquiries = (int) $pdo->query('SELECT COUNT(*) FROM enquiries')->fetchColumn();
 $baseHonda = (int) run($pdo, 'SELECT COUNT(*) FROM vehicles WHERE brand_id = ? AND deleted_at IS NULL', [$honda])->fetchColumn();
 $baseYears = $repo->years();
 check('baseline recorded (existing real vehicles are left untouched)', $baseCount >= 0);
@@ -399,10 +401,10 @@ check('the technical detail went to the server log instead', str_contains((strin
 @unlink(sys_get_temp_dir() . '/vehicle_test_errors.log');
 
 echo "Cleanup\n";
-check('rollback left the vehicle count as it was and no shipments, enquiries or images', $repo->countAll() === $baseCount
+check('rollback left the vehicle, shipment, enquiry and image counts as they were', $repo->countAll() === $baseCount
     && (int) $pdo->query('SELECT COUNT(*) FROM vehicles')->fetchColumn() === $baseCount
-    && (int) $pdo->query('SELECT COUNT(*) FROM shipments')->fetchColumn() === 0
-    && (int) $pdo->query('SELECT COUNT(*) FROM enquiries')->fetchColumn() === 0
+    && (int) $pdo->query('SELECT COUNT(*) FROM shipments')->fetchColumn() === $baseShipments
+    && (int) $pdo->query('SELECT COUNT(*) FROM enquiries')->fetchColumn() === $baseEnquiries
     && (int) $pdo->query('SELECT COUNT(*) FROM vehicle_images')->fetchColumn() === $baseImages);
 check('no vehicle audit rows remain from this run', (int) run($pdo, "SELECT COUNT(*) FROM audit_logs WHERE event_type LIKE 'VEHICLE\\_%' AND user_agent = ?", [$ua])->fetchColumn() === 0);
 check('the approved brands are unchanged (statuses restored by the rollback)', (int) $pdo->query("SELECT COUNT(*) FROM brands WHERE slug IN ('toyota','honda','mazda')")->fetchColumn() === 3);

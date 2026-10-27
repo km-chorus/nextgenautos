@@ -16,14 +16,14 @@ $cookies = [
     ['vip_cookie_consent', 'Remembers the cookie choice you make on this page.', CookieConsentService::LIFETIME_DAYS . ' days'],
 ];   // the staff-only admin session cookie is deliberately not listed: visitors never receive it
 ?>
-<?= public_page_header('Cookie Settings', 'Your privacy', 'The cookies this website uses, and your choice about what your browser keeps.') ?>
+<?= public_page_header('Cookie Settings') ?>
 
 <div class="container section cookie-page">
-<?php if ($data['saved']): ?>
-    <?= public_alert('success', 'Your cookie settings have been saved.') ?>
-<?php elseif ($data['error'] !== null): ?>
-    <?= public_alert('error', $data['error']) ?>
-<?php elseif (!$consent['chosen']): ?>
+<?php
+if ($data['saved']) { public_toast($page, 'success', 'Your cookie settings have been saved.'); }
+if ($data['error'] !== null) { public_toast($page, 'error', (string) $data['error']); }
+?>
+<?php if (!$data['saved'] && $data['error'] === null && !$consent['chosen']): ?>
     <?= public_alert('info', 'You have not made a choice yet. Until you do, only essential cookies are used and your browser keeps no copies of the pages you visit.') ?>
 <?php endif; ?>
 
@@ -42,6 +42,7 @@ $cookies = [
     <section class="cookie-page__section" aria-labelledby="list-title">
         <h2 id="list-title">Cookies we use</h2>
         <p>All of these are essential and set by this website only. We do not use advertising, analytics, tracking or third-party cookies, and nothing is stored in your browser's local storage.</p>
+        <p>One exception: the Contact page shows a map from Google (Google Maps). When that page is open, Google may set its own cookies, under Google's privacy policy. The rest of the website loads nothing from Google.</p>
         <div class="cookie-table__wrap">
             <table class="cookie-table">
                 <thead>

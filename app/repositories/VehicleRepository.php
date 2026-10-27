@@ -12,12 +12,14 @@ declare(strict_types=1);
 class VehicleRepository
 {
     private const LIST_COLUMNS = 'v.id, v.brand_id, b.name AS brand_name, v.year, v.model, v.trim, v.price, v.currency,
-        v.availability_status, v.is_published, v.slug, v.created_at';
+        v.availability_status, v.is_published, v.is_accident, v.slug, v.created_at';
 
     private const DETAIL_COLUMNS = 'v.id, v.brand_id, b.name AS brand_name, b.status AS brand_status, v.year, v.model, v.trim,
         v.engine_size, v.mileage, v.mileage_unit, v.transmission, v.fuel_type, v.drive_type, v.price, v.currency,
         v.description, v.key_features, v.shipping_info, v.duty_included, v.availability_status, v.is_published,
+        v.is_accident, v.damage_description, v.damage_areas, v.runs_drives, v.airbags_deployed, v.title_status,
         v.slug, v.created_at, v.updated_at,
+        (SELECT COUNT(*) FROM vehicle_images di WHERE di.vehicle_id = v.id AND di.photo_type = \'damage\') AS damage_image_count,
         (SELECT COUNT(*) FROM shipments s WHERE s.vehicle_id = v.id) AS shipment_count,
         (SELECT COUNT(*) FROM enquiries e WHERE e.vehicle_id = v.id) AS enquiry_count,
         (SELECT COUNT(*) FROM vehicle_images i WHERE i.vehicle_id = v.id) AS image_count';
@@ -32,6 +34,26 @@ class VehicleRepository
      */
     private const PUBLIC_WHERE = "v.is_published = 1 AND v.deleted_at IS NULL AND v.availability_status IN ('available', 'reserved')";
 
+    /**
+     * Spec 23: accident-damaged vehicles are never part of the normal inventory (Vehicles page, homepage, search options,
+     * assistant). They are listed only on the accident page, and only with their damage disclosed: a damage description
+     * and at least one damage photo (checked here too, so a vehicle that loses its last damage photo disappears).
+     * Whether the accident page is switched on is decided by the caller (AccidentVehicleSettings).
+     */
+    public const SECTION_NORMAL = 'normal';
+    public const SECTION_ACCIDENT = 'accident';
+    private const SECTION_WHERE = [
+        self::SECTION_NORMAL   => 'v.is_accident = 0',
+        self::SECTION_ACCIDENT => "v.is_accident = 1 AND v.damage_description IS NOT NULL AND v.damage_description <> ''
+            AND EXISTS (SELECT 1 FROM vehicle_images di WHERE di.vehicle_id = v.id AND di.photo_type = 'damage')",
+    ];
+
+    /** The public rule for one section (normal inventory or accident vehicles). */
+    public static function publicWhere(string $section = self::SECTION_NORMAL): string
+    {
+        return self::PUBLIC_WHERE . ' AND ' . (self::SECTION_WHERE[$section] ?? self::SECTION_WHERE[self::SECTION_NORMAL]);
+    }
+
     /** The only ORDER BY clauses the public inventory can use: the URL picks a KEY, never SQL. */
     private const PUBLIC_SORTS = [
         'newest'     => 'v.created_at DESC, v.id DESC',
@@ -39,8 +61,8 @@ class VehicleRepository
         'price_desc' => 'v.price DESC, v.id DESC',
     ];
 
-    private const PUBLIC_COLUMNS = 'v.id, b.name AS brand_name, v.year, v.model, v.trim, v.engine_size, v.transmission, v.drive_type, v.fuel_type, v.mileage, v.mileage_unit,
-        v.price, v.currency, v.duty_included, v.availability_status, v.slug';
+    private const PUBLIC_COLUMNS = 'v.id, v.brand_id, b.slug AS brand_slug, b.name AS brand_name, v.year, v.model, v.trim, v.engine_size, v.transmission, v.drive_type, v.fuel_type, v.mileage, v.mileage_unit,
+        v.price, v.currency, v.duty_included, v.availability_status, v.is_accident, v.slug';
 
     /**
      * Public inventory search: the newest first, one page. Filters (all optional, already validated by
@@ -67,16 +89,36 @@ class VehicleRepository
     }
 
     /**
+     * Every public vehicle page for sitemap.xml (SEO 2026-10-27): exactly the vehicles a visitor can open (same public
+     * rule as the pages; accident vehicles only while that page is switched on). lastmod = the later of the vehicle's
+     * own last change and its newest photo, as a UTC date.
+     *
+     * @return list<array{slug:string,lastmod:string}>
+     */
+    public function sitemapEntries(bool $includeAccident): array
+    {
+        $where = $includeAccident ? '((' . self::publicWhere(self::SECTION_NORMAL) . ') OR (' . self::publicWhere(self::SECTION_ACCIDENT) . '))' : self::publicWhere(self::SECTION_NORMAL);
+        $rows = $this->pdo->query(
+            'SELECT v.slug, GREATEST(v.updated_at, COALESCE((SELECT MAX(i.created_at) FROM vehicle_images i WHERE i.vehicle_id = v.id), v.updated_at)) AS changed
+             FROM vehicles v WHERE ' . $where . ' ORDER BY v.created_at DESC, v.id DESC LIMIT 45000'
+        )->fetchAll(PDO::FETCH_ASSOC);
+
+        return array_map(static fn (array $r): array => ['slug' => (string) $r['slug'], 'lastmod' => substr((string) $r['changed'], 0, 10)], $rows);
+    }
+
+    /**
      * One public vehicle by its slug (spec 14 detail page), under the same public rule as the listings. Only the
      * customer-facing columns; the id is returned for the image and enquiry lookups and never leaves the service layer.
      *
      * @return array<string,mixed>|null
      */
-    public function publicBySlug(string $slug): ?array
+    public function publicBySlug(string $slug, bool $includeAccident = false): ?array
     {
+        $where = $includeAccident ? '((' . self::publicWhere(self::SECTION_NORMAL) . ') OR (' . self::publicWhere(self::SECTION_ACCIDENT) . '))' : self::publicWhere(self::SECTION_NORMAL);
         $stmt = $this->pdo->prepare(
-            'SELECT ' . self::PUBLIC_COLUMNS . ', v.description, v.key_features, v.shipping_info
-             FROM vehicles v JOIN brands b ON b.id = v.brand_id WHERE ' . self::PUBLIC_WHERE . ' AND v.slug = :slug LIMIT 1'
+            'SELECT ' . self::PUBLIC_COLUMNS . ', v.description, v.key_features, v.shipping_info,
+                    v.damage_description, v.damage_areas, v.runs_drives, v.airbags_deployed, v.title_status
+             FROM vehicles v JOIN brands b ON b.id = v.brand_id WHERE ' . $where . ' AND v.slug = :slug LIMIT 1'
         );
         $stmt->execute(['slug' => $slug]);
         $row = $stmt->fetch();
@@ -101,9 +143,9 @@ class VehicleRepository
      *
      * @return array{models:list<array{brand_slug:string,brand_name:string,model:string}>,years:list<int>,max_ghs_price:?string}
      */
-    public function publicFilterValues(): array
+    public function publicFilterValues(string $section = self::SECTION_NORMAL): array
     {
-        $base = ' FROM vehicles v JOIN brands b ON b.id = v.brand_id WHERE ' . self::PUBLIC_WHERE;
+        $base = ' FROM vehicles v JOIN brands b ON b.id = v.brand_id WHERE ' . self::publicWhere($section);
         $models = $this->pdo->query('SELECT DISTINCT b.slug AS brand_slug, b.name AS brand_name, v.model' . $base . ' ORDER BY b.name, v.model')->fetchAll();
         $years = $this->pdo->query('SELECT DISTINCT v.year' . $base . ' ORDER BY v.year DESC')->fetchAll(PDO::FETCH_COLUMN);
         $max = $this->pdo->query("SELECT MAX(v.price)" . $base . " AND v.currency = 'GHS'")->fetchColumn();
@@ -114,7 +156,7 @@ class VehicleRepository
     /** @param array{brand:?string,model:?string,year:?int,max_price:?int} $filters @return array{0:string,1:array<string,mixed>} */
     private function publicConditions(array $filters): array
     {
-        $where = [self::PUBLIC_WHERE];
+        $where = [self::publicWhere((string) ($filters['section'] ?? self::SECTION_NORMAL))];
         $params = [];
         if (($filters['brand'] ?? null) !== null) {
             $where[] = 'b.slug = :brand';
@@ -242,9 +284,11 @@ class VehicleRepository
     {
         $stmt = $this->pdo->prepare(
             'INSERT INTO vehicles (brand_id, year, model, trim, engine_size, mileage, mileage_unit, transmission, fuel_type, drive_type,
-                price, currency, description, key_features, shipping_info, duty_included, availability_status, is_published, slug)
+                price, currency, description, key_features, shipping_info, duty_included, availability_status, is_published, slug,
+                is_accident, damage_description, damage_areas, runs_drives, airbags_deployed, title_status)
              VALUES (:brand_id, :year, :model, :trim, :engine_size, :mileage, :mileage_unit, :transmission, :fuel_type, :drive_type,
-                :price, :currency, :description, :key_features, :shipping_info, :duty_included, :availability_status, :is_published, :slug)'
+                :price, :currency, :description, :key_features, :shipping_info, :duty_included, :availability_status, :is_published, :slug,
+                :is_accident, :damage_description, :damage_areas, :runs_drives, :airbags_deployed, :title_status)'
         );
         $this->bindValues($stmt, $values);
         $stmt->execute();
@@ -260,7 +304,9 @@ class VehicleRepository
                 mileage = :mileage, mileage_unit = :mileage_unit, transmission = :transmission, fuel_type = :fuel_type,
                 drive_type = :drive_type, price = :price, currency = :currency, description = :description,
                 key_features = :key_features, shipping_info = :shipping_info, duty_included = :duty_included,
-                availability_status = :availability_status, is_published = :is_published, slug = :slug
+                availability_status = :availability_status, is_published = :is_published, slug = :slug,
+                is_accident = :is_accident, damage_description = :damage_description, damage_areas = :damage_areas,
+                runs_drives = :runs_drives, airbags_deployed = :airbags_deployed, title_status = :title_status
              WHERE id = :id AND deleted_at IS NULL'
         );
         $this->bindValues($stmt, $values);
@@ -373,5 +419,12 @@ class VehicleRepository
         $stmt->bindValue('availability_status', $v['availability_status']);
         $stmt->bindValue('is_published', (int) $v['is_published'], PDO::PARAM_INT);
         $stmt->bindValue('slug', $v['slug']);
+        // Spec 23: accident damage (all NULL for a normal vehicle). damage_areas is a MySQL SET: a comma-separated list of allowed keys.
+        $stmt->bindValue('is_accident', (int) ($v['is_accident'] ?? 0), PDO::PARAM_INT);
+        foreach (['damage_description', 'runs_drives', 'airbags_deployed', 'title_status'] as $key) {
+            $stmt->bindValue($key, $v[$key] ?? null, $nullable($v[$key] ?? null));
+        }
+        $areas = ($v['damage_areas'] ?? []) === [] ? null : implode(',', $v['damage_areas']);
+        $stmt->bindValue('damage_areas', $areas, $nullable($areas));
     }
 }

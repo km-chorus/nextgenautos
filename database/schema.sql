@@ -90,6 +90,8 @@ CREATE TABLE customers (
     email         VARCHAR(255) NOT NULL,
     password_hash VARCHAR(255) NULL COMMENT 'password_hash() output only; never plaintext; NULL for Google-only accounts',
     google_id     VARCHAR(64) NULL COMMENT 'Google account identifier (sub); migration 004',
+    email_verified_at DATETIME NULL COMMENT 'set when the customer confirmed their email, or by Google sign-in (migration 009)',
+    password_changed_at DATETIME NULL COMMENT 'UTC, sessions signed in before this are ended (migration 011)',
     status        ENUM('active','disabled') NOT NULL DEFAULT 'active',
     last_login_at DATETIME NULL,
     created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -183,6 +185,12 @@ CREATE TABLE vehicles (
     key_features        JSON NULL COMMENT 'JSON array of feature strings',
     shipping_info       TEXT NULL,
     duty_included       TINYINT(1) NOT NULL DEFAULT 0,
+    is_accident         TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'accident-damaged: listed only on the accident page (spec 23, migration 010)',
+    damage_description  TEXT NULL,
+    damage_areas        SET('front','rear','left','right','roof','underbody','interior','flood') NULL,
+    runs_drives         ENUM('yes','no','not_checked') NULL,
+    airbags_deployed    ENUM('yes','no','unknown') NULL,
+    title_status        ENUM('clean','salvage','rebuilt','unknown') NULL COMMENT 'Canadian title / brand status',
     availability_status ENUM('available','reserved','sold','unavailable') NOT NULL DEFAULT 'available',
     is_published        TINYINT(1) NOT NULL DEFAULT 0,
     slug                VARCHAR(160) NOT NULL,
@@ -195,6 +203,7 @@ CREATE TABLE vehicles (
     KEY idx_vehicles_listing (is_published, deleted_at, availability_status),
     KEY idx_vehicles_year (year),
     KEY idx_vehicles_price (price),
+    KEY idx_vehicles_accident (is_accident, is_published, deleted_at, availability_status),
     CONSTRAINT fk_vehicles_brand FOREIGN KEY (brand_id) REFERENCES brands (id)
         ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT chk_vehicles_year CHECK (year BETWEEN 1900 AND 2100),
@@ -204,7 +213,8 @@ CREATE TABLE vehicles (
     CONSTRAINT chk_vehicles_model CHECK (CHAR_LENGTH(TRIM(model)) > 0),
     CONSTRAINT chk_vehicles_mileage_unit CHECK (mileage IS NULL OR mileage_unit IS NOT NULL),
     CONSTRAINT chk_vehicles_features CHECK (key_features IS NULL OR JSON_TYPE(key_features) = 'ARRAY'),
-    CONSTRAINT chk_vehicles_flags CHECK (duty_included IN (0,1) AND is_published IN (0,1))
+    CONSTRAINT chk_vehicles_flags CHECK (duty_included IN (0,1) AND is_published IN (0,1)),
+    CONSTRAINT chk_vehicles_accident CHECK (is_accident IN (0,1))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------------------------------------------------------
@@ -220,7 +230,7 @@ CREATE TABLE vehicle_images (
     file_path           VARCHAR(255) NOT NULL,
     original_filename   VARCHAR(255) NULL,
     alt_text            VARCHAR(255) NULL,
-    photo_type          ENUM('exterior','interior') NOT NULL DEFAULT 'exterior' COMMENT 'gallery tab on the vehicle page (migration 007)',
+    photo_type          ENUM('exterior','interior','damage') NOT NULL DEFAULT 'exterior' COMMENT 'gallery tab on the vehicle page (migrations 007, 010)',
     display_order       INT UNSIGNED NOT NULL DEFAULT 0,
     is_primary          TINYINT(1) NOT NULL DEFAULT 0,
     primary_vehicle_id  INT UNSIGNED GENERATED ALWAYS AS (CASE WHEN is_primary = 1 THEN vehicle_id ELSE NULL END) VIRTUAL,
@@ -258,11 +268,10 @@ CREATE TABLE parts (
     id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
     category_id   INT UNSIGNED NOT NULL,
     name          VARCHAR(150) NOT NULL,
-    part_number   VARCHAR(100) NULL,
-    `condition`   ENUM('new','used') NOT NULL DEFAULT 'new',
-    price         DECIMAL(12,2) NOT NULL,
+    `condition`   ENUM('new','used') NULL DEFAULT NULL COMMENT 'NULL = not stated (spec 27)',
+    price         DECIMAL(12,2) NULL COMMENT 'NULL = price on request (spec 27)',
     currency      CHAR(3) NOT NULL DEFAULT 'GHS',
-    stock_status  ENUM('in_stock','out_of_stock') NOT NULL DEFAULT 'in_stock',
+    stock_status  ENUM('in_stock','out_of_stock') NULL DEFAULT NULL COMMENT 'NULL = not stated (spec 27)',
     description   TEXT NULL,
     is_published  TINYINT(1) NOT NULL DEFAULT 0,
     slug          VARCHAR(160) NOT NULL,
@@ -280,6 +289,21 @@ CREATE TABLE parts (
     CONSTRAINT chk_parts_currency CHECK (currency REGEXP '^[A-Z]{3}$'),
     CONSTRAINT chk_parts_slug CHECK (slug REGEXP '^[a-z0-9]+(-[a-z0-9]+)*$'),
     CONSTRAINT chk_parts_published CHECK (is_published IN (0,1))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Several part numbers per part (spec 27): OEM plus alternative / interchange numbers. sort_order 0 = the main number.
+CREATE TABLE part_numbers (
+    id         INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    part_id    INT UNSIGNED NOT NULL,
+    number     VARCHAR(100) NOT NULL,
+    sort_order TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0 = the main number shown on the website',
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_part_numbers_part_number (part_id, number),
+    KEY idx_part_numbers_number (number),
+    KEY idx_part_numbers_order (part_id, sort_order),
+    CONSTRAINT fk_part_numbers_part FOREIGN KEY (part_id) REFERENCES parts (id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT chk_part_numbers_number CHECK (CHAR_LENGTH(TRIM(number)) > 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE part_fitments (
@@ -334,6 +358,7 @@ CREATE TABLE part_images (
 CREATE TABLE shipments (
     id                INT UNSIGNED NOT NULL AUTO_INCREMENT,
     vehicle_id        INT UNSIGNED NOT NULL,
+    customer_id       INT UNSIGNED NULL COMMENT 'the customer''s website account, when they have one (migration 008)',
     customer_name     VARCHAR(150) NULL,
     customer_email    VARCHAR(255) NULL,
     container_number  VARCHAR(30) NULL COMMENT 'Supplied by the shipping company; never generated',
@@ -346,13 +371,17 @@ CREATE TABLE shipments (
     delivered_date    DATE NULL,
     tracking_url      VARCHAR(500) NULL,
     internal_notes    TEXT NULL,
+    notified_at       DATETIME NULL COMMENT 'when the customer was last emailed about this shipment (migration 008)',
     created_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     KEY idx_shipments_vehicle (vehicle_id),
     KEY idx_shipments_status (status),
     KEY idx_shipments_container (container_number),
+    KEY idx_shipments_customer (customer_id),
     CONSTRAINT fk_shipments_vehicle FOREIGN KEY (vehicle_id) REFERENCES vehicles (id)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_shipments_customer FOREIGN KEY (customer_id) REFERENCES customers (id)
         ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT chk_shipments_container CHECK (container_number IS NULL OR CHAR_LENGTH(TRIM(container_number)) > 0),
     CONSTRAINT chk_shipments_tracking_url CHECK (tracking_url IS NULL OR tracking_url LIKE 'https://%')
@@ -366,6 +395,7 @@ CREATE TABLE shipments (
 CREATE TABLE enquiries (
     id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
     vehicle_id    INT UNSIGNED NULL,
+    customer_id   INT UNSIGNED NULL COMMENT 'the account that sent it while signed in (migration 009)',
     customer_name VARCHAR(150) NOT NULL,
     email         VARCHAR(255) NOT NULL,
     phone         VARCHAR(40) NULL,
@@ -378,7 +408,10 @@ CREATE TABLE enquiries (
     KEY idx_enquiries_vehicle (vehicle_id),
     KEY idx_enquiries_status_created (status, created_at),
     KEY idx_enquiries_email (email),
+    KEY idx_enquiries_customer (customer_id),
     CONSTRAINT fk_enquiries_vehicle FOREIGN KEY (vehicle_id) REFERENCES vehicles (id)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_enquiries_customer FOREIGN KEY (customer_id) REFERENCES customers (id)
         ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT chk_enquiries_name CHECK (CHAR_LENGTH(TRIM(customer_name)) > 0),
     CONSTRAINT chk_enquiries_message CHECK (CHAR_LENGTH(TRIM(message)) > 0)
@@ -435,6 +468,7 @@ CREATE TABLE site_content (
 --   contact        public email, phone, address
 --   social         public social-profile URLs
 --   external_links approved external services (tracking provider, duty calc.)
+--   features       on/off switches set by administrators (accident_vehicles_enabled, spec 23)
 -- NEVER store secrets here (DB/SMTP passwords, Brevo keys, app secrets):
 -- those belong in environment configuration. Allowed setting keys are
 -- whitelisted by the application; the DB enforces key format and category.
@@ -442,7 +476,7 @@ CREATE TABLE site_content (
 CREATE TABLE settings (
     id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
     setting_key   VARCHAR(100) NOT NULL,
-    category      ENUM('company','contact','social','external_links') NOT NULL,
+    category      ENUM('company','contact','social','external_links','features') NOT NULL,
     setting_value VARCHAR(1000) NULL,
     created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -479,4 +513,19 @@ CREATE TABLE audit_logs (
     CONSTRAINT fk_audit_logs_admin FOREIGN KEY (admin_user_id) REFERENCES admin_users (id)
         ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT chk_audit_logs_event CHECK (CHAR_LENGTH(event_type) > 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ----------------------------------------------------------------------------
+-- customer_favourites (migration 009): a customer's saved vehicles
+-- ----------------------------------------------------------------------------
+CREATE TABLE customer_favourites (
+    customer_id INT UNSIGNED NOT NULL,
+    vehicle_id  INT UNSIGNED NOT NULL,
+    created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (customer_id, vehicle_id),
+    KEY idx_customer_favourites_vehicle (vehicle_id),
+    CONSTRAINT fk_customer_favourites_customer FOREIGN KEY (customer_id) REFERENCES customers (id)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_customer_favourites_vehicle FOREIGN KEY (vehicle_id) REFERENCES vehicles (id)
+        ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

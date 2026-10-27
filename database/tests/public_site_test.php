@@ -74,7 +74,12 @@ $check('admin paths are not public routes', array_filter($paths, static fn ($p) 
 echo "\nNavigation and footer links\n";
 $links = [];
 $loginPath = null;
-foreach (public_nav_items() as $item) {
+$navFlat = [];
+foreach (public_nav_items(false, true) as $item) {   // with the accident page on, so every possible link is checked
+    $navFlat[] = $item;
+    foreach ($item['children'] ?? [] as $child) { $navFlat[] = $child; }
+}
+foreach ($navFlat as $item) {
     if ($item['route'] === 'login') {
         $loginPath = $item['path'];   // the existing administrator sign-in page, not a public route
         continue;
@@ -90,20 +95,23 @@ $unresolved = array_filter($links, static fn ($p) => $prod->resolve('GET', $p)['
 $check('every header and footer link resolves to a route', $unresolved === [], implode(',', $unresolved));
 $check('no public link points at the admin; Login opens the customer sign-in (spec 13), the admin sign-in stays a separate file', array_filter($links, static fn ($p) => str_contains($p, 'admin')) === [] && $loginPath === '/login/' && is_file(dirname(__DIR__, 2) . '/admin/login.php'));
 $check('Login has an icon; no other item does', array_column(array_filter(public_nav_items(), static fn ($i) => isset($i['icon'])), 'route') === ['login']);
-$check('nav items match the revised spec (no Track Vehicle, no Browse Vehicles button)', array_column(public_nav_items(), 'label') === ['Vehicles', 'How It Works', 'Track Vehicle', 'About', 'Contact', 'Login'] && !function_exists('public_cta'));
+$check('nav items: Home, Vehicles (dropdown), About, Contact, Login (2026-10-26)', array_column(public_nav_items(), 'label') === ['Home', 'Vehicles', 'About', 'Contact', 'Login'] && !function_exists('public_cta'));
+$vehiclesItem = public_nav_items(false, true)[1];
+$check('under Vehicles: All Vehicles, Accident Vehicles (only when on), Track Vehicle', array_column($vehiclesItem['children'], 'label') === ['All Vehicles', 'Accident Vehicles', 'Track Vehicle']
+    && array_column(public_nav_items(false, false)[1]['children'], 'label') === ['All Vehicles', 'Track Vehicle']);
 $check('footer groups match the spec', array_column(public_footer_groups(), 'title') === ['Company', 'Vehicles', 'Support']);
-$navRoutes = array_diff(array_column(public_nav_items(), 'route'), ['login']);
+$navRoutes = array_diff(array_column($navFlat, 'route'), ['login']);
 $check('nav route names exist', array_filter($navRoutes, static fn ($n) => $prod->byName($n) === null) === []);
 
 echo "\nMetadata\n";
 $meta = public_meta(['title' => 'Vehicles', 'path' => '/vehicles/']);
-$check('title has site name', str_contains($meta, '<title>Vehicles | Mr Amponsah Autos</title>'));
+$check('title has site name', str_contains($meta, '<title>Vehicles | Next Gen Autos and Parts</title>'));
 $check('no description tag when none is given', !str_contains($meta, 'name="description"'));
 $check('robots default', str_contains($meta, 'content="index,follow"'));
 $xss = public_meta(['title' => '"><script>alert(1)</script>', 'description' => '<img onerror=x>', 'path' => '/vehicles/']);
 $check('title and description escaped', !str_contains($xss, '<script>') && !str_contains($xss, '<img'));
-$home = public_meta(['title' => 'Mr Amponsah Autos', 'path' => '/']);
-$check('home title is just the site name', str_contains($home, '<title>Mr Amponsah Autos</title>'));
+$home = public_meta(['title' => 'Next Gen Autos and Parts', 'path' => '/']);
+$check('home title is just the site name', str_contains($home, '<title>Next Gen Autos and Parts</title>'));
 $_SERVER['HTTP_HOST'] = 'evil.example';
 $check('canonical never uses the Host header', !str_contains(public_meta(['title' => 'x', 'path' => '/x/']), 'evil.example'));
 $check('canonical ignores a non-route path', !str_contains(public_meta(['title' => 'x', 'path' => '/x/"><b>']), '<b>'));

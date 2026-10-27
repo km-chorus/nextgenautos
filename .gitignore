@@ -24,7 +24,12 @@ uploads/parts/*
 # Logs and cache
 logs/
 cache/
+# Short-lived private data (password reset cache, 2026-10-22): never committed; the folder carries its own deny file
+storage/*
+!storage/.htaccess
 *.log
+# cPanel PHP error files (no extension)
+error_log
 
 # Editor / OS files
 .vscode/

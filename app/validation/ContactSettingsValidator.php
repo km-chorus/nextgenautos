@@ -21,13 +21,20 @@ final class ContactSettingsValidator
         'whatsapp_number'  => ['contact', 'phone', 'WhatsApp number', []],
         'contact_email'    => ['contact', 'email', 'Email address', []],
         'opening_hours'    => ['contact', 'text',  'Opening hours', []],
+        'office_address'   => ['contact', 'text',  'Office address', []],   // 2026-10-23: Contact page map (Google Maps, loaded on click)
         'social_facebook'  => ['social',  'url',   'Facebook',  ['facebook.com', 'fb.com']],
         'social_instagram' => ['social',  'url',   'Instagram', ['instagram.com']],
         'social_tiktok'    => ['social',  'url',   'TikTok',    ['tiktok.com']],
         'social_x'         => ['social',  'url',   'X',         ['x.com', 'twitter.com']],
         'social_youtube'   => ['social',  'url',   'YouTube',   ['youtube.com', 'youtu.be']],
         'social_linkedin'  => ['social',  'url',   'LinkedIn',  ['linkedin.com']],
+        // Spec 15 §4 (email integration 2026-10-27): where new-enquiry alerts are emailed. Category 'company' is never read
+        // by the public site (CompanyContactService reads 'contact' and 'social' only), so this address stays private.
+        'notification_email' => ['company', 'email', 'Notification email', []],
     ];
+
+    /** Every settings category the admin Settings form edits. */
+    public const CATEGORIES = ['contact', 'social', 'company'];
 
     /**
      * @param array<string,mixed> $post

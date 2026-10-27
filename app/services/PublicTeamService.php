@@ -58,22 +58,88 @@ final class PublicTeamService
         return $members;
     }
 
+    public const ABOUT_LIMIT = 48;      // About page: every active member (a sane upper bound)
+    public const ABOUT_BIO_LENGTH = 600;
+
+    /**
+     * Every active team member WITH an uploaded photo for the About page (2026-10-26), in the administrator's order: name,
+     * position, department, a longer biography, and the photo (thumbnail plus the large file for sharp screens). Only
+     * what the administrator entered. No member with a photo = an empty list, and the page leaves the section out.
+     *
+     * @return list<array{name:string,position:string,category:?string,bio:?string,photo:?array{url:string,width:int,height:int},large:?string,alt:string}>
+     */
+    /**
+     * True when the About page shows a team section (at least one active member with an uploaded photo). Read once per
+     * request; a database problem counts as "no team" (logged), so the footer never links to a missing section.
+     */
+    public static function hasVisibleTeam(): bool
+    {
+        static $cached = null;
+        if ($cached === null) {
+            try {
+                $cached = self::create()->forAboutPage() !== [];
+            } catch (Throwable $e) {
+                error_log('Team visibility could not be read: ' . get_class($e));
+                $cached = false;
+            }
+        }
+
+        return $cached;
+    }
+
+    public function forAboutPage(): array
+    {
+        $members = [];
+        foreach ($this->team->publicActive(self::ABOUT_LIMIT) as $row) {
+            $name = trim((string) $row['name']);
+            if ($name === '') {
+                continue;
+            }
+            $position = trim((string) $row['position']);
+            $photo = $this->thumbnail((string) ($row['photo_path'] ?? ''));
+            if ($photo === null) {
+                continue;   // owner 2026-10-26: the card is the photo; a member without an uploaded photo is not shown
+            }
+            $members[] = [
+                'name'     => $name,
+                'position' => $position,
+                'category' => $this->category((string) ($row['category'] ?? '')),
+                'bio'      => $this->shorten($row['biography'] ?? null, self::ABOUT_BIO_LENGTH),
+                'photo'    => $photo,
+                'large'    => $photo === null ? null : $this->large((string) $row['photo_path']),
+                'alt'      => $position !== '' ? $name . ', ' . $position : $name,
+            ];
+        }
+
+        return $members;
+    }
+
+    /** The large stored photo (same checks as the thumbnail), as a root-relative URL, or null. */
+    private function large(string $path): ?string
+    {
+        if (preg_match('#^uploads/team/([a-f0-9]{32})\.webp$#', $path) !== 1 || !is_file($this->root . '/' . $path)) {
+            return null;
+        }
+
+        return '/' . $path;
+    }
+
     /** The category's display name, or null for "other" (not worth showing a visitor). */
     private function category(string $key): ?string
     {
         return ($key === '' || $key === 'other' || !array_key_exists($key, TeamValidator::CATEGORIES)) ? null : TeamValidator::categoryLabel($key);
     }
 
-    private function shorten(mixed $text): ?string
+    private function shorten(mixed $text, int $limit = self::BIO_LENGTH): ?string
     {
         $text = trim((string) preg_replace('/\s+/u', ' ', (string) $text));
         if ($text === '') {
             return null;
         }
-        if (mb_strlen($text) <= self::BIO_LENGTH) {
+        if (mb_strlen($text) <= $limit) {
             return $text;
         }
-        $cut = mb_substr($text, 0, self::BIO_LENGTH);
+        $cut = mb_substr($text, 0, $limit);
         $space = mb_strrpos($cut, ' ');
 
         return rtrim($space !== false && $space > 60 ? mb_substr($cut, 0, $space) : $cut, " ,;:.-") . '…';

@@ -70,6 +70,25 @@ final class CompanyContactService
     }
 
     /**
+     * The GHANA number customers message about a vehicle (owner request 2026-10-22: "Ask a question" opens WhatsApp with the
+     * Ghanaian number), as international digits ("233..."). The WhatsApp number from Settings when it is a Ghana number,
+     * otherwise the first company phone that is a Ghana number. Null when there is none: the button then opens the contact form.
+     * One query; nothing is invented.
+     */
+    public function ghanaWhatsapp(): ?string
+    {
+        $stored = $this->settings->valuesIn(['contact']);
+        foreach ([self::WHATSAPP_KEY, self::PHONE_KEY, self::PHONE_2_KEY] as $key) {
+            $phone = isset($stored[$key]) ? self::normalizePhone($stored[$key]) : null;
+            if ($phone !== null && str_starts_with($phone['tel'], '+233')) {
+                return substr($phone['tel'], 1);
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Everything the Contact page shows (spec 17), from ONE query, each value re-checked by ContactSettingsValidator: anything
      * missing or not valid is left out (null / not listed), never shown half-broken.
      *
@@ -97,8 +116,21 @@ final class CompanyContactService
             'whatsapp' => $whatsapp === null ? null : substr((string) self::normalizePhone($whatsapp)['tel'], 1),
             'email'    => $valid('contact_email'),
             'hours'    => $valid('opening_hours'),
+            'address'  => $valid('office_address'),
             'socials'  => $socials,
         ];
+    }
+
+    /** Google Maps search link for an address (opens Google Maps; no key needed). */
+    public static function mapLink(string $address): string
+    {
+        return 'https://www.google.com/maps/search/?api=1&query=' . rawurlencode(preg_replace('/\s+/', ' ', trim($address)) ?? '');
+    }
+
+    /** Google Maps embed address for the same place (loaded in a frame only after the visitor asks for it). */
+    public static function mapEmbed(string $address): string
+    {
+        return 'https://www.google.com/maps?q=' . rawurlencode(preg_replace('/\s+/', ' ', trim($address)) ?? '') . '&output=embed';
     }
 
     /**

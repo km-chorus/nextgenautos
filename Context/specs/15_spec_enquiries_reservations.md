@@ -34,6 +34,20 @@ On a Reservation request whose vehicle is `available`:
 * If Brevo or the setting is not configured, the enquiry is still saved and the failure is logged; the customer still sees success.
 * No confirmation email to the customer in this spec — **PROPOSED**.
 
+**Amended by the owner on 2026-10-27 (Brevo email integration), implemented the same day:**
+
+* Because the admin inbox (section 2) is not built yet, the alert carries the **full details**: type, vehicle (or Contact page
+  topic), customer name, email, phone, the message, time and enquiry reference. This replaces the "no message body or contact
+  details" rule above.
+* From is always the verified sender (`MAIL_FROM_ADDRESS`); **Reply-To** is the customer's validated email, so staff answer
+  by replying. The customer is never put in From.
+* Recipient: setting `notification_email`, stored in category `company` (never read by the public site), edited in
+  Admin > Settings > Email alerts. Empty = no alert.
+* Sent after the enquiry is committed (`EnquiryAlertService`); a failure is logged without customer details and audited
+  (`ENQUIRY_ALERT_SENT` / `ENQUIRY_ALERT_FAILED`); the customer still sees success. Honeypot, invalid, throttled and
+  refused submissions send nothing.
+* Still out of scope: confirmation emails to the customer, replying from the admin.
+
 ## 5. Contact settings (`/admin/settings.php`)
 
 * Replaces the Settings placeholder with one section, "Contact":

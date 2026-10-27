@@ -108,7 +108,7 @@ try {
     $check('link is the SEO slug route', preg_match('#^/vehicle/testdata-[a-f0-9]{8}/$#', $full['url']) === 1, $full['url']);
     $keys = array_keys($full);
     sort($keys);
-    $check('only customer-facing fields leave the service (no id, notes, shipping, timestamps)', $keys === ['alt', 'brand', 'duty', 'gallery', 'image', 'name', 'price', 'reserved', 'spec', 'specs', 'status', 'title', 'url', 'year'], implode(',', $keys));
+    $check('only customer-facing fields leave the service (no id, notes, shipping, timestamps)', $keys === ['accident', 'alt', 'brand', 'duty', 'gallery', 'image', 'name', 'price', 'reserved', 'slug', 'spec', 'specs', 'status', 'title', 'url', 'year'], implode(',', $keys));
     $check('internal notes never appear in the data', !str_contains(json_encode($cards), 'INTERNAL-SHIPPING-NOTE'));
 
     echo "\nImages\n";
@@ -224,10 +224,10 @@ try {
         public function publicSearch(array $filters, int $limit, int $offset): array
         {
             return [
-                ['id' => 900001, 'brand_name' => 'Toyota', 'year' => 2020, 'model' => 'Bad Slug', 'trim' => null, 'engine_size' => null, 'transmission' => null, 'drive_type' => null, 'fuel_type' => null, 'price' => '1.00', 'currency' => 'CAD', 'availability_status' => 'available', 'slug' => '../admin/login.php'],
-                ['id' => 900002, 'brand_name' => 'Toyota', 'year' => 2020, 'model' => 'Upper', 'trim' => null, 'engine_size' => null, 'transmission' => null, 'drive_type' => null, 'fuel_type' => null, 'price' => '1.00', 'currency' => 'CAD', 'availability_status' => 'available', 'slug' => 'Upper-Case'],
-                ['id' => 900003, 'brand_name' => 'Toyota', 'year' => 2020, 'model' => 'Long', 'trim' => null, 'engine_size' => null, 'transmission' => null, 'drive_type' => null, 'fuel_type' => null, 'price' => '1.00', 'currency' => 'CAD', 'availability_status' => 'available', 'slug' => str_repeat('a', 161)],
-                ['id' => 900004, 'brand_name' => 'Toyota', 'year' => 2020, 'model' => '<script>alert(1)</script>', 'trim' => '  ', 'engine_size' => '', 'transmission' => '', 'drive_type' => null, 'fuel_type' => '', 'price' => '1.00', 'currency' => 'CAD', 'availability_status' => 'available', 'slug' => 'fine-slug'],
+                ['id' => 900001, 'brand_name' => 'Toyota', 'year' => 2020, 'model' => 'Bad Slug', 'trim' => null, 'engine_size' => null, 'transmission' => null, 'drive_type' => null, 'fuel_type' => null, 'price' => '1.00', 'currency' => 'CAD', 'duty_included' => 0, 'availability_status' => 'available', 'slug' => '../admin/login.php'],
+                ['id' => 900002, 'brand_name' => 'Toyota', 'year' => 2020, 'model' => 'Upper', 'trim' => null, 'engine_size' => null, 'transmission' => null, 'drive_type' => null, 'fuel_type' => null, 'price' => '1.00', 'currency' => 'CAD', 'duty_included' => 0, 'availability_status' => 'available', 'slug' => 'Upper-Case'],
+                ['id' => 900003, 'brand_name' => 'Toyota', 'year' => 2020, 'model' => 'Long', 'trim' => null, 'engine_size' => null, 'transmission' => null, 'drive_type' => null, 'fuel_type' => null, 'price' => '1.00', 'currency' => 'CAD', 'duty_included' => 0, 'availability_status' => 'available', 'slug' => str_repeat('a', 161)],
+                ['id' => 900004, 'brand_name' => 'Toyota', 'year' => 2020, 'model' => '<script>alert(1)</script>', 'trim' => '  ', 'engine_size' => '', 'transmission' => '', 'drive_type' => null, 'fuel_type' => '', 'price' => '1.00', 'currency' => 'CAD', 'duty_included' => 0, 'availability_status' => 'available', 'slug' => 'fine-slug'],
             ];
         }
     };

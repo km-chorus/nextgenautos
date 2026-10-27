@@ -43,7 +43,7 @@ function upfile(string $bytes, string $name = 'part.jpg', int $error = UPLOAD_ER
 }
 function part(array $over = []): array
 {
-    return $over + ['category_id' => (string) $GLOBALS['catBrakes'], 'name' => 'TEST Front brake pads', 'part_number' => '04465-02220', 'condition' => 'new',
+    return $over + ['category_id' => (string) $GLOBALS['catBrakes'], 'name' => 'TEST Front brake pads', 'part_numbers' => ['04465-02220'], 'condition' => 'new',
         'price' => '450', 'currency' => 'GHS', 'stock_status' => 'in_stock', 'description' => 'TEST part', 'is_published' => '1',
         'fitments' => [['brand_id' => (string) $GLOBALS['toyota'], 'model' => 'Corolla', 'year_from' => '2014', 'year_to' => '2018']]];
 }
@@ -55,13 +55,15 @@ $GLOBALS['toyota'] = 1;
 $v = PartValidator::validate(part());
 check('a complete part is valid', $v['errors'] === [], json_encode($v['errors']));
 check('price normalised to two decimals; "1,250.5" accepted', $v['values']['price'] === '450.00' && PartValidator::validate(part(['price' => '1,250.5']))['values']['price'] === '1250.50');
-foreach (['', 'abc', '-5', '1.234', '1e5', '99999999999', ' '] as $bad) {
+foreach (['abc', '-5', '1.234', '1e5', '99999999999'] as $bad) {
     check('price rejected: ' . json_encode($bad), isset(PartValidator::validate(part(['price' => $bad]))['errors']['price']));
 }
 check('name required, max 150, no < >', isset(PartValidator::validate(part(['name' => '  ']))['errors']['name']) && isset(PartValidator::validate(part(['name' => str_repeat('a', 151)]))['errors']['name'])
     && isset(PartValidator::validate(part(['name' => '<script>']))['errors']['name']) && isset(PartValidator::validate(part(['name' => ['x']]))['errors']['name']));
-check('part number optional; odd characters rejected', PartValidator::validate(part(['part_number' => '']))['values']['part_number'] === null
-    && isset(PartValidator::validate(part(['part_number' => 'AB"; DROP']))['errors']['part_number']) && !isset(PartValidator::validate(part(['part_number' => '90915-YZZE1 / A.2']))['errors']['part_number']));
+check('spec 27: an empty price means "price on request" (null, no error)', ($e = PartValidator::validate(part(['price' => ' '])))['values']['price'] === null && !isset($e['errors']['price']));
+check('spec 27: condition and stock may be left unset (null)', ($e = PartValidator::validate(part(['condition' => '', 'stock_status' => ''])))['values']['condition'] === null && $e['values']['stock_status'] === null && $e['errors'] === []);
+check('part numbers optional; odd characters rejected', PartValidator::validate(part(['part_numbers' => ['', ' ']]))['values']['part_numbers'] === []
+    && isset(PartValidator::validate(part(['part_numbers' => ['AB"; DROP']]))['errors']['part_number_0']) && !isset(PartValidator::validate(part(['part_numbers' => ['90915-YZZE1 / A.2']]))['errors']['part_number_0']));
 check('condition, stock and currency only from their lists', isset(PartValidator::validate(part(['condition' => 'refurb']))['errors']['condition'])
     && isset(PartValidator::validate(part(['stock_status' => '5']))['errors']['stock_status']) && isset(PartValidator::validate(part(['currency' => 'USD']))['errors']['currency']));
 check('published only when exactly "1"', PartValidator::validate(part(['is_published' => 'yes']))['values']['is_published'] === 0 && PartValidator::validate(part())['values']['is_published'] === 1);
@@ -78,7 +80,7 @@ check('fitment records: empty model and years become NULL', PartValidator::fitme
 check('category form: name required and unique-safe slug; order digits only', isset(PartValidator::category(['name' => ''])['errors']['name']) && isset(PartValidator::category(['name' => '---'])['errors']['name'])
     && isset(PartValidator::category(['name' => 'Ok', 'display_order' => '-1'])['errors']['display_order']) && PartValidator::category(['name' => 'Ok', 'status' => 'inactive'])['values']['status'] === 'inactive');
 check('list filters: junk falls back to no filter', PartValidator::filters(['q' => ['x'], 'category' => "1 OR 1", 'brand' => '-2', 'published' => 'maybe', 'stock' => 'x', 'page' => '0'])
-    === ['q' => '', 'category' => null, 'brand' => null, 'published' => 'all', 'stock' => 'all', 'page' => 1]);
+    === ['q' => '', 'category' => null, 'brand' => null, 'published' => 'all', 'stock' => 'all', 'price' => 'all', 'fits' => 'all', 'page' => 1]);
 check('fitment label reads naturally', PartService::fitmentLabel(['brand_name' => 'Toyota', 'model' => 'Corolla', 'year_from' => 2014, 'year_to' => 2018]) === 'Toyota Corolla 2014–2018'
     && PartService::fitmentLabel(['brand_name' => 'Honda', 'model' => null, 'year_from' => null, 'year_to' => null]) === 'Honda all models'
     && PartService::fitmentLabel(['brand_name' => 'Kia', 'model' => 'Rio', 'year_from' => 2015, 'year_to' => null]) === 'Kia Rio 2015 onwards'
@@ -89,7 +91,7 @@ check('fitment label reads naturally', PartService::fitmentLabel(['brand_name' =
 $pdo = Database::connection();
 echo "Schema\n";
 $tables = $pdo->query("SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME LIKE 'part%' ORDER BY TABLE_NAME")->fetchAll(PDO::FETCH_COLUMN);
-check('the four parts tables exist', $tables === ['part_categories', 'part_fitments', 'part_images', 'parts'], implode(',', $tables));
+check('the five parts tables exist (part_numbers: spec 27)', $tables === ['part_categories', 'part_fitments', 'part_images', 'part_numbers', 'parts'], implode(',', $tables));
 check('the eleven starting categories exist, Accessories included', (int) $pdo->query("SELECT COUNT(*) FROM part_categories WHERE slug IN ('engine','transmission','brakes','suspension-steering','electrical','cooling','body-lights','interior','filters-service','wheels-tyres','accessories')")->fetchColumn() === 11);
 $realParts = (int) $pdo->query('SELECT COUNT(*) FROM parts')->fetchColumn();
 $realFiles = array_values(array_diff(scandir(dirname(__DIR__, 2) . '/uploads/parts') ?: [], ['.', '..', '.gitkeep']));
@@ -184,7 +186,7 @@ try {
         && $service->changeState($id, 'in_stock', $adminId, $ip, $ua) === 'ok');
 
     echo "Homepage data\n";
-    $acc = $service->createPart(part(['name' => 'TEST Phone holder', 'part_number' => '', 'category_id' => (string) $catAcc, 'fitments' => []]), [], $adminId, $ip, $ua, false);
+    $acc = $service->createPart(part(['name' => 'TEST Phone holder', 'part_numbers' => [], 'category_id' => (string) $catAcc, 'fitments' => []]), [], $adminId, $ip, $ua, false);
     $hidden = $service->createPart(part(['name' => 'TEST Hidden part', 'is_published' => '0']), [], $adminId, $ip, $ua, false);
     $public = new PublicPartService($repo, $work);
     $home = $public->homepage();
@@ -242,6 +244,7 @@ check('administrator holds the parts permission', AuthorizationService::can('adm
 $admin = ['id' => $adminId, 'name' => 'Admin', 'role' => 'administrator'];
 $_SESSION = [];
 $pdo->beginTransaction();   // the controller audits each CSRF failure: keep those rows out of the real table
+$auditStart = (int) $pdo->query('SELECT COALESCE(MAX(id), 0) FROM audit_logs')->fetchColumn();   // QA 2026-10-27: was a fixed id (2052) that only fit one database
 foreach ([
     'create' => $controller->create($admin, 'POST', part(), [], [], $ip, $ua),
     'state' => $controller->changeState($admin, ['id' => '1', 'action' => 'archive'], $ip, $ua),
@@ -250,7 +253,7 @@ foreach ([
 ] as $action => $result) {
     check("a POST without a valid CSRF token is refused: $action", $result['http'] === 400 && $result['problem'] === 'csrf');
 }
-check('each CSRF failure is audited', (int) $pdo->query("SELECT COUNT(*) FROM audit_logs WHERE user_agent = 'parts_test' AND event_type = 'CSRF_FAILURE' AND id > 2052")->fetchColumn() === 4);
+check('each CSRF failure is audited', (int) $pdo->query("SELECT COUNT(*) FROM audit_logs WHERE user_agent = 'parts_test' AND event_type = 'CSRF_FAILURE' AND id > $auditStart")->fetchColumn() === 4);
 $pdo->rollBack();
 check('photos(): empty slots dropped, odd shapes become an invalid upload', PartController::photos([]) === []
     && PartController::photos(['photos' => ['name' => [''], 'tmp_name' => [''], 'error' => [UPLOAD_ERR_NO_FILE], 'size' => [0]]]) === []

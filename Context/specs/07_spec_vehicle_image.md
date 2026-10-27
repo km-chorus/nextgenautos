@@ -1584,3 +1584,22 @@ Do not implement Settings.
 Wait for the next specification.
 
 # End of Specification 07
+
+## Update 2026-10-26: hard size limits, verified on the server
+
+Owner requirement: images must be small before they are stored, and the backend must verify this. Nothing the browser does is trusted.
+
+| Kind | Main image | Thumbnail | Never shrunk below (long side) |
+| --- | --- | --- | --- |
+| Vehicle | 700 KB, fits 1600 x 1600 | 100 KB, fits 640 x 640 | 800 px |
+| Part | 700 KB, fits 1600 x 1600 | 100 KB, fits 640 x 640 | 600 px |
+| Team | 450 KB, fits 1200 x 1600 | 60 KB, fits 400 x 533 | 600 px |
+
+* **Encoding:** quality 78, 68, then 58 (thumbnails 70, 60, then 50). If the file is still over the limit, the image is made 15% smaller and encoded again. If it cannot fit at a useful size, the upload is refused.
+* **Read-back check:** after writing, each file is read back from disk. It must be a real WebP within its byte limit and its box. If not, the file is deleted and the upload refused.
+* **Unchanged:** uploads over 10 MB are refused before decoding. The original upload is never kept.
+* **Tests:** `database/tests/image_size_test.php` covers:
+  * worst-case images for every kind;
+  * refusal on the read-back check;
+  * the 10 MB limit;
+  * a read-only check of every file already in `uploads/`.
